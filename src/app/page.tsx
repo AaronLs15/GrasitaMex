@@ -25,15 +25,10 @@ import {
   Star,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Sun, Moon } from "lucide-react";
+import { useEffect } from "react";
+import { BtnSuscribe } from "@/components/landing/btn-suscribe";
 
-const metadata = {
-  title: "GrasitaMex Sneakers — Tienda de Tenis",
-  description:
-    "Sneakers nuevos y usados, accesorios y más. Pagos con Mercado Pago. Envios a todo México.",
-};
-
-// ⚠️ Reemplaza estas rutas de imagen por las que tengas en /public o tu CDN
-const heroImg = "/images/snkrsstore-blanco.jpg";
 const catImgs = {
   nuevos: "/images/cat-nuevos.jpg",
   usados: "/images/cat-usados.jpg",
@@ -70,6 +65,41 @@ function moneyFromCents(cents: number) {
     style: "currency",
     currency: "MXN",
   }).format(cents / 100);
+}
+
+function ThemeToggle() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    // aplica preferencia guardada o media query
+    const saved = localStorage.getItem("theme");
+    const isDark = saved
+      ? saved === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+
+  if (!mounted) return null;
+
+  const toggle = () => {
+    const isDark = document.documentElement.classList.toggle("dark");
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      onClick={toggle}
+      aria-label="Cambiar tema"
+      className="rounded-xl"
+      title="Cambiar tema"
+    >
+      <Sun className="w-4 h-4 dark:hidden" />
+      <Moon className="hidden w-4 h-4 dark:block" />
+    </Button>
+  );
 }
 
 /** Badges con los colores del brand */
@@ -164,6 +194,7 @@ export default function Home() {
             </Link>
           </nav>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {/* Outline con brand */}
             <Button
               asChild
@@ -174,7 +205,7 @@ export default function Home() {
               <Link href="/login">Entrar</Link>
             </Button>
             <Button asChild size="sm" className="rounded-xl">
-              <Link href="/tienda">Comprar ahora</Link>
+              <Link href="/modelos">Comprar ahora</Link>
             </Button>
           </div>
         </div>
@@ -204,7 +235,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col gap-3 mt-6 sm:flex-row">
               <Button asChild size="lg" className="px-6 rounded-2xl">
-                <Link href="/tienda" className="flex items-center gap-2">
+                <Link href="/modelos" className="flex items-center gap-2">
                   Comprar ahora <ChevronRight className="w-4 h-4" />
                 </Link>
               </Button>
@@ -235,13 +266,19 @@ export default function Home() {
           >
             <div className="relative w-full overflow-hidden shadow aspect-4/3 rounded-3xl">
               <Image
-                src={heroImg}
+                src="/images/snkrsstore-blanco.jpg"
                 alt="Colección de sneakers"
                 fill
                 priority
-                className="object-cover"
+                className="object-cover dark:hidden"
               />
-              {/* overlay dorado sutil */}
+              <Image
+                src="/images/snkrsstore-dark.jpg"
+                alt="Colección de sneakers"
+                fill
+                priority
+                className="hidden object-cover dark:block"
+              />
               <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-[hsl(var(--primary))/18%] via-transparent to-transparent" />
             </div>
           </motion.div>
@@ -314,7 +351,7 @@ export default function Home() {
             </p>
           </div>
           <Button asChild variant="link" className="px-0">
-            <Link href="/tienda" className="flex items-center gap-1">
+            <Link href="/modelos" className="flex items-center gap-1">
               Ver todo <ChevronRight className="w-4 h-4" />
             </Link>
           </Button>
@@ -343,7 +380,7 @@ export default function Home() {
             </div>
             <div className="justify-self-end">
               <Button asChild size="lg" className="rounded-2xl">
-                <Link href="/tienda">Empezar a comprar</Link>
+                <Link href="/modelos">Empezar a comprar</Link>
               </Button>
             </div>
           </div>
@@ -364,9 +401,8 @@ export default function Home() {
               className="flex items-center w-full gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                // TODO: Conecta a tu endpoint /api/subscribe o Supabase
+                // TODO: Conecta a endpoint /api/subscribe o Supabase
                 setEmail("");
-                alert("¡Gracias! Te suscribiste correctamente.");
               }}
             >
               <Input
@@ -377,9 +413,14 @@ export default function Home() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-11 rounded-xl"
               />
-              <Button type="submit" className="px-6 h-11 rounded-xl">
+              <BtnSuscribe
+                from="bottom"
+                type="submit"
+                className="px-6 h-11 rounded-xl bg-primary"
+                variant="outline"
+              >
                 Suscribirme
-              </Button>
+              </BtnSuscribe>
             </form>
           </div>
         </Card>
@@ -466,7 +507,7 @@ function Footer() {
           <p className="mb-2 text-sm font-semibold">Tienda</p>
           <ul className="space-y-1 text-sm text-muted-foreground">
             <li>
-              <Link className="hover:underline" href="/tienda">
+              <Link className="hover:underline" href="/modelos">
                 Todos los productos
               </Link>
             </li>
@@ -529,7 +570,7 @@ function Footer() {
             © {new Date().getFullYear()} GrasitaMex. Todos los derechos
             reservados.
           </span>
-          <span>Hecho con Next.js + shadcn/ui</span>
+          <span>By ALDevelopment</span>
         </div>
       </div>
     </footer>
