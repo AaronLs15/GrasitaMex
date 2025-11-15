@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useToast } from '@/hooks/use-toast'
+import DarkVeil from '@/components/DarkVeil'
 
 const schema = z.object({
   email: z.string().email('Correo inválido'),
@@ -26,48 +27,92 @@ export default function LoginPage() {
 
   async function onSubmit(values: z.infer<typeof schema>) {
     const supa = supabaseBrowser()
-    const { error } = await supa.auth.signInWithPassword({
-      email: values.email, password: values.password,
+    const { data, error } = await supa.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
     })
+
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
       return
     }
+
+    const userId = data.user?.id
+    let role: string | null = null
+
+    if (userId) {
+      const { data: profile } = await supa
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle()
+
+      role = profile?.role ?? null
+    }
+
+    const destination = role === 'admin' ? '/admin' : '/costumer'
     toast({ title: 'Bienvenido', description: 'Sesión iniciada' })
-    router.replace('/admin')
+    router.replace(destination)
   }
 
   return (
-    <div className="min-h-screen grid place-items-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Iniciar sesión</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Correo</FormLabel>
-                  <FormControl><Input placeholder="tu@correo.com" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="password" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contraseña</FormLabel>
-                  <FormControl><Input type="password" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}/>
-              <Button className="w-full" type="submit">Entrar</Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter>
-          <p className="text-xs text-muted-foreground">Usa tu usuario admin para acceder al panel.</p>
-        </CardFooter>
-      </Card>
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 pointer-events-none -z-10">
+        <DarkVeil
+          resolutionScale={1}
+        />
+      </div>
+
+      {/* Contenido encima del background */}
+      <div className="relative grid min-h-screen place-items-center">
+        <Card className="w-full max-w-sm bg-background/80 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Iniciar sesión</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Correo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="tu@correo.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contraseña</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button className="w-full text-white bg-black hover:bg-black/80" type="submit">
+                  Entrar
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter>
+            <p className="text-xs text-muted-foreground">
+              Usa tu usuario admin para acceder al panel.
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }
+

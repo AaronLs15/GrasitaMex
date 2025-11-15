@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,155 +15,193 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
-  Truck,
-  ShieldCheck,
-  RotateCcw,
-  Headphones,
   CreditCard,
   ChevronRight,
   Star,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Sun, Moon } from "lucide-react";
-import { useEffect } from "react";
 import { BtnSuscribe } from "@/components/landing/btn-suscribe";
+import HeadNavBar from "@/components/HeadNavBar";
+import {
+  AddToCartControl,
+  type SizeOption as CartSizeOption,
+} from "@/components/cart/AddToCartControl";
 
-const catImgs = {
-  nuevos: "/images/cat-nuevos.jpg",
-  usados: "/images/cat-usados.jpg",
-  accesorios: "/images/cat-accesorios.jpg",
-  modelos: "/images/cat-modelos.jpg",
+/* ---------- tipos mínimos ---------- */
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+  kind?: "general" | "model";
 };
 
-const demoProducts = [
-  {
-    id: "1",
-    title: "Jordan 1 High University Blue",
-    priceCents: 499900,
-    status: "nuevo" as const,
-    img: "/images/j1UNC.webp",
-  },
-  {
-    id: "2",
-    title: "New Balance 530 White/Grey (USADO)",
-    priceCents: 219900,
-    status: "usado" as const,
-    img: "/images/nw530.webp",
-  },
-  {
-    id: "3",
-    title: "Laces Premium Waxed (Accesorio)",
-    priceCents: 29900,
-    status: "accesorio" as const,
-    img: "/images/laces.jpg",
-  },
-];
+type Product = {
+  id: number;
+  title: string;
+  price_cents: number;
+  condition: "new" | "used" | string;
+  created_at: string;
+  image_url: string | null;           // derivada de product_images
+  sizeOptions: CartSizeOption[];      // tallas disponibles con stock
+};
 
+/* ---------- utilidades ---------- */
 function moneyFromCents(cents: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-  }).format(cents / 100);
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format((cents ?? 0) / 100);
 }
 
-function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    // aplica preferencia guardada o media query
-    const saved = localStorage.getItem("theme");
-    const isDark = saved
-      ? saved === "dark"
-      : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
-
-  if (!mounted) return null;
-
-  const toggle = () => {
-    const isDark = document.documentElement.classList.toggle("dark");
-    localStorage.setItem("theme", isDark ? "dark" : "light");
+/* ---------- badges ---------- */
+function BadgeByStatus({ condition }: { condition: Product["condition"] }) {
+  const map: Record<string, { label: string; className: string }> = {
+    new: { label: "Nuevo", className: "bg-primary text-primary-foreground" },
+    used: { label: "Usado", className: "bg-secondary text-secondary-foreground" },
   };
-
-  return (
-    <Button
-      variant="outline"
-      size="icon"
-      onClick={toggle}
-      aria-label="Cambiar tema"
-      className="rounded-xl"
-      title="Cambiar tema"
-    >
-      <Sun className="w-4 h-4 dark:hidden" />
-      <Moon className="hidden w-4 h-4 dark:block" />
-    </Button>
-  );
-}
-
-/** Badges con los colores del brand */
-function BadgeByStatus({
-  status,
-}: {
-  status: "nuevo" | "usado" | "accesorio";
-}) {
-  const map = {
-    nuevo: { label: "Nuevo", className: "bg-primary text-primary-foreground" },
-    usado: {
-      label: "Usado",
-      className: "bg-secondary text-secondary-foreground",
-    },
-    accesorio: {
-      label: "Accesorio",
-      className:
-        "border border-border text-foreground bg-background/40 backdrop-blur",
-    },
-  } as const;
-  const { label, className } = map[status];
+  const { label, className } = map[condition] ?? { label: String(condition), className: "border border-border" };
   return <Badge className={className}>{label}</Badge>;
 }
 
-function FeaturedProductCard({ p }: { p: (typeof demoProducts)[number] }) {
+/* ===================== Card de producto ===================== */
+function FeaturedProductCard({ p }: { p: Product }) {
+  const img = p.image_url ?? "/logoGrasitaMex.ico";
   return (
     <Card className="overflow-hidden transition-colors border group rounded-2xl border-primary/30 hover:border-primary/60">
       <CardHeader className="p-0">
-        <div className="relative w-full overflow-hidden aspect-4/3">
-          <Image
-            src={p.img}
-            alt={p.title}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+        <div className="relative w-full overflow-hidden aspect-square sm:aspect-4/3">
+          <Image 
+            src={img} 
+            alt={p.title} 
+            fill 
+            className="object-cover transition-transform duration-300 group-hover:scale-105" 
           />
-          <div className="absolute left-3 top-3">
-            <BadgeByStatus status={p.status} />
+          <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
+            <BadgeByStatus condition={p.condition} />
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-4 space-y-1">
-        <CardTitle className="text-base leading-tight">{p.title}</CardTitle>
-        <CardDescription className="text-sm">
-          {moneyFromCents(p.priceCents)}
+      <CardContent className="p-3 space-y-1 sm:p-4">
+        <CardTitle className="text-sm leading-tight sm:text-base line-clamp-2">{p.title}</CardTitle>
+        <CardDescription className="text-xs font-semibold sm:text-sm">
+          {moneyFromCents(p.price_cents)}
         </CardDescription>
       </CardContent>
-      <CardFooter className="flex items-center justify-between p-4">
-        <Link
-          href={`/producto/${p.id}`}
-          className="text-sm font-medium hover:underline"
-        >
-          Ver producto
-        </Link>
-        <Button asChild size="sm" className="rounded-xl">
-          <Link href={`/checkout?pid=${p.id}`}>Comprar</Link>
-        </Button>
+      <CardFooter className="flex flex-col gap-3 p-3 sm:p-4">
+        <AddToCartControl
+          productId={p.id}
+          title={p.title}
+          priceCents={p.price_cents}
+          sizeOptions={p.sizeOptions}
+          className="w-full"
+          buttonVariant="default"
+          buttonSize="sm"
+        />
+        <div className="flex flex-col items-stretch justify-between gap-2 text-xs sm:flex-row sm:items-center sm:text-sm">
+          <Link
+            href={`/producto/${p.id}`}
+            className="text-center font-medium hover:underline sm:text-left"
+          >
+            Ver detalles
+          </Link>
+          <Button asChild size="sm" className="w-full rounded-xl sm:w-auto">
+            <Link href={`/checkout?pid=${p.id}`}>Comprar</Link>
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );
 }
 
+/* ===================== Card de categoría (solo título) ===================== */
+function CategoryCardText({ title, href }: { title: string; href: string }) {
+  return (
+    <Link href={href} className="group">
+      <Card className="h-full p-4 transition-colors border sm:p-5 rounded-2xl border-border hover:border-primary/50">
+        <div className="flex items-center justify-between h-20 sm:h-28">
+          <h3 className="pr-2 text-base font-semibold sm:text-lg line-clamp-2">{title}</h3>
+          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 opacity-60 group-hover:opacity-100 shrink-0" />
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
 export default function Home() {
   const [email, setEmail] = useState("");
+
+  const [categories, setCategories] = useState<Category[] | null>(null);
+  const [recent, setRecent] = useState<Product[] | null>(null);
+  const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingProds, setLoadingProds] = useState(true);
+
+  useEffect(() => {
+    // CATEGORÍAS: solo 'general'
+    (async () => {
+      setLoadingCats(true);
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, slug, kind")
+        .eq("kind", "general")
+        .order("name", { ascending: true });
+      if (error) {
+        console.error("Categories error:", error);
+        setCategories([]);
+      } else {
+        setCategories(data as Category[]);
+      }
+      setLoadingCats(false);
+    })();
+
+    // TOP 3 productos recientes con primera imagen
+    (async () => {
+      setLoadingProds(true);
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, title, price_cents, condition, created_at, product_images!left(url, position), product_variants(size_label, qty, active)")
+        .eq("published", true)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error("Products error:", error);
+        setRecent([]);
+      } else {
+        // escoger la imagen de menor position (o null)
+        const mapped: Product[] = (data as any[]).map((row) => {
+          const imgs = (row.product_images ?? []) as { url: string; position: number }[];
+          const first = imgs.sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0))[0];
+          const variants = (row.product_variants ?? []) as {
+            size_label: string | null;
+            qty?: number | null;
+            active?: boolean | null;
+          }[];
+          const sizeMap = new Map<string, number>();
+          for (const variant of variants) {
+            const label = variant.size_label?.trim();
+            if (!label) continue;
+            if (variant.active === false) continue;
+            const qty = variant.qty ?? 0;
+            if (qty <= 0) continue;
+            sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
+          }
+          const sizeOptions = Array.from(sizeMap.entries()).map(
+            ([label, available]) => ({ label, available })
+          );
+          return {
+            id: row.id,
+            title: row.title,
+            price_cents: row.price_cents,
+            condition: row.condition,
+            created_at: row.created_at,
+            image_url: first?.url ?? null,
+            sizeOptions,
+          };
+        });
+        setRecent(mapped);
+      }
+      setLoadingProds(false);
+    })();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -172,45 +211,7 @@ export default function Home() {
         WhatsApp
       </div>
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="flex items-center justify-between h-16 px-4 mx-auto max-w-7xl">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Image
-              src="/logoGrasitaMex.ico"
-              alt="GrasitaMex"
-              width={30}
-              height={30}
-              className="rounded"
-            />
-            <span className="text-lg tracking-tight">GrasitaMex</span>
-          </Link>
-          <nav className="items-center hidden gap-6 md:flex">
-            <Link href="/categorias" className="text-sm hover:underline">
-              Categorías
-            </Link>
-            <Link href="/modelos" className="text-sm hover:underline">
-              Modelos
-            </Link>
-          </nav>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            {/* Outline con brand */}
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-primary text-primary hover:bg-primary/10"
-            >
-              <Link href="/login">Entrar</Link>
-            </Button>
-            <Button asChild size="sm" className="rounded-xl">
-              <Link href="/modelos">Comprar ahora</Link>
-            </Button>
-          </div>
-        </div>
-        <Separator />
-      </header>
+      <HeadNavBar/>
 
       {/* Hero */}
       <section className="relative">
@@ -285,83 +286,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Benefits / Trust */}
-      <section className="px-4 py-8 mx-auto max-w-7xl">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Benefit
-            icon={<Truck className="w-5 h-5" />}
-            title="Envío a todo MX"
-            desc="Rastreo en tiempo real"
-          />
-          <Benefit
-            icon={<ShieldCheck className="w-5 h-5" />}
-            title="Pago seguro"
-            desc="Mercado Pago"
-          />
-          <Benefit
-            icon={<RotateCcw className="w-5 h-5" />}
-            title="Devoluciones"
-            desc="Hasta 7 días"
-          />
-          <Benefit
-            icon={<Headphones className="w-5 h-5" />}
-            title="Soporte"
-            desc="WhatsApp y correo"
-          />
-        </div>
-      </section>
+      {/* ===== Categorías (dinámico, sin imágenes) ===== */}
+      <CategoriesSection categories={categories} loadingCats={loadingCats} />
 
-      {/* Category grid */}
-      <section className="px-4 py-6 mx-auto max-w-7xl">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Compra por categoría
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Explora nuestro catálogo y agrega al carrito.
-        </p>
-        <div className="grid grid-cols-1 gap-4 mt-6 sm:grid-cols-2 lg:grid-cols-4">
-          <CategoryCard
-            title="Nuevos"
-            href="/categoria/nuevos"
-            img={catImgs.nuevos}
-          />
-          <CategoryCard
-            title="Usados"
-            href="/categoria/usados"
-            img={catImgs.usados}
-          />
-          <CategoryCard
-            title="Accesorios"
-            href="/categoria/accesorios"
-            img={catImgs.accesorios}
-          />
-          <CategoryCard title="Modelos" href="/modelos" img={catImgs.modelos} />
-        </div>
-      </section>
-
-      {/* Featured products */}
-      <section className="px-4 py-10 mx-auto max-w-7xl">
-        <div className="flex items-end justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Destacados
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Se actualiza conforme agregues productos desde el panel admin.
-            </p>
-          </div>
-          <Button asChild variant="link" className="px-0">
-            <Link href="/modelos" className="flex items-center gap-1">
-              Ver todo <ChevronRight className="w-4 h-4" />
-            </Link>
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 gap-5 mt-6 sm:grid-cols-2 lg:grid-cols-3">
-          {demoProducts.map((p) => (
-            <FeaturedProductCard key={p.id} p={p} />
-          ))}
-        </div>
-      </section>
+      {/* Top 4 artículos recientes */}
+      <FeaturedProductsSection recent={recent} loadingProds={loadingProds} />
 
       {/* Payment banner */}
       <section className="px-4 pb-10 mx-auto max-w-7xl">
@@ -431,58 +360,71 @@ export default function Home() {
   );
 }
 
-function CategoryCard({
-  title,
-  href,
-  img,
-}: {
-  title: string;
-  href: string;
-  img: string;
+/* ---------- helpers UI ---------- */
+
+export function CategoriesSection({ categories, loadingCats }: { 
+  categories: Category[] | null; 
+  loadingCats: boolean;
 }) {
   return (
-    <Link href={href} className="group">
-      <div className="relative overflow-hidden border rounded-2xl border-border">
-        <div className="relative w-full aspect-4/3">
-          <Image
-            src={img}
-            alt={title}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+    <section className="px-4 py-6 mx-auto max-w-7xl">
+      <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Compra por categoría</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Explora nuestro catálogo y agrega al carrito.</p>
+
+      {loadingCats ? (
+        <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="h-20 sm:h-28 animate-pulse rounded-2xl bg-muted" />
+          ))}
         </div>
-        <div className="absolute inset-0 pointer-events-none bg-linear-to-t from-black/60 via-black/10 to-transparent" />
-        <div className="absolute bottom-3 left-3">
-          <h3 className="text-lg font-semibold text-white drop-shadow">
-            {title}
-          </h3>
+      ) : categories && categories.length ? (
+        <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+          {categories.map((c) => (
+            <CategoryCardText key={c.id} title={c.name} href={`/categoria/${c.slug}`} />
+          ))}
         </div>
-      </div>
-    </Link>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">Aún no hay categorías generales.</p>
+      )}
+    </section>
   );
 }
 
-function Benefit({
-  icon,
-  title,
-  desc,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
+export function FeaturedProductsSection({ recent, loadingProds }: {
+  recent: Product[] | null;
+  loadingProds: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 p-3 border rounded-xl">
-      <div className="grid border rounded-full h-9 w-9 place-items-center bg-card">
-        {icon}
+    <section className="px-4 py-10 mx-auto max-w-7xl">
+      <div className="flex flex-col items-start justify-between gap-2 mb-6 sm:flex-row sm:items-end sm:gap-0">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Destacados</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Los 3 artículos agregados más recientemente.</p>
+        </div>
+        <Button asChild variant="link" className="px-0 -ml-4 sm:ml-0">
+          <Link href="/modelos" className="flex items-center gap-1 text-sm">
+            Ver todo <ChevronRight className="w-4 h-4" />
+          </Link>
+        </Button>
       </div>
-      <div className="leading-tight">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">{desc}</p>
-      </div>
-    </div>
+
+      {loadingProds ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
+          {[1,2,3].map(i => (
+            <div key={i} className="h-64 sm:h-72 animate-pulse rounded-2xl bg-muted" />
+          ))}
+        </div>
+      ) : recent && recent.length ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
+          {recent.map((p) => <FeaturedProductCard key={p.id} p={p} />)}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Aún no hay productos publicados.</p>
+      )}
+    </section>
   );
 }
+
 
 function Footer() {
   return (

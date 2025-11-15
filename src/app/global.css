@@ -47,7 +47,7 @@
   --radius: 0.625rem;
 
   /* Brand (LIGHT) */
-  --background: #ffffff;                 /* base clara */
+  --background: #f4f4f4;                 /* base clara */
   --foreground: #131010;                 /* texto principal (carbón) */
   --card: #ffffff;
   --card-foreground: #131010;

@@ -2,9 +2,10 @@
 import type { Metadata } from 'next'
 import './global.css'
 import { Toaster } from 'sonner'
+import { CartProvider } from '@/context/cart-context'
 
 export const metadata: Metadata = {
-  title: 'Admin - GrasitaMex',
+  title: 'GrasitaMex',
   description: 'Panel de administración',
   authors: [{name: "Aaron Lujano"}],
   icons : {
@@ -17,8 +18,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body>
-        {children}
-        <Toaster />
+        <CartProvider>
+          {children}
+          <Toaster />
+        </CartProvider>
       </body>
     </html>
   )
