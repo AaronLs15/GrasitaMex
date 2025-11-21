@@ -10,6 +10,7 @@ import {
   AddToCartControl,
   type SizeOption as CartSizeOption,
 } from "@/components/cart/AddToCartControl";
+import { array } from "zod";
 
 /* ---------- tipos ---------- */
 
@@ -69,7 +70,7 @@ export default function ModelosPage() {
               kind
             )
           ),
-          product_variants (
+          product_variants!inner (
             size_label,
             qty,
             active
@@ -77,6 +78,7 @@ export default function ModelosPage() {
         `
         )
         .eq("published", true)
+        .gt("product_variants.qty", 0)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -182,7 +184,11 @@ export default function ModelosPage() {
       Array.from(
         new Set(
           products
-            .map((p) => p.sizeCm)
+            .flatMap((p) => p.sizeOptions ?? []) // todas las opciones de todos los productos
+            .map((opt) => {
+              const match = opt.label.match(/(\d+(\.\d+)?)/);
+              return match ? parseFloat(match[1]) : null;
+            })
             .filter((s): s is number => typeof s === "number" && s > 0)
         )
       ).sort((a, b) => a - b),
@@ -217,9 +223,18 @@ export default function ModelosPage() {
         selectedCategories.length === 0 ||
         (product.category && selectedCategories.includes(product.category));
 
+      // convertir TODAS las labels de sizeOptions a cm para que pueda filtrar por cualquier talla (hotfix)
+      const productSizesCm =
+        product.sizeOptions
+          ?.map((opt) => {
+            const match = opt.label.match(/(\d+(\.\d+)?)/);
+            return match ? parseFloat(match[1]) : null;
+          })
+          .filter((s): s is number => typeof s === "number" && s > 0) ?? [];
+
       const matchesSize =
         selectedSizes.length === 0 ||
-        (product.sizeCm && selectedSizes.includes(product.sizeCm));
+        productSizesCm.some((sizeCm) => selectedSizes.includes(sizeCm));
 
       const text = searchText.trim().toLowerCase();
       const matchesSearch =

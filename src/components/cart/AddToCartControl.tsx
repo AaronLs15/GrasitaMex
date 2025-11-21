@@ -92,6 +92,7 @@ export function AddToCartControl({
       price_cents: priceCents,
       size: selectedSize,
       quantity: 1,
+      maxAvailable: selectedOption?.available,
     });
 
     toast({
