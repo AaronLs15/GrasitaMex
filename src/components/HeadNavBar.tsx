@@ -4,12 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sun, Moon, ShoppingCart } from "lucide-react";
+import { Sun, Moon, ShoppingCart, X, User } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useCart } from "@/context/cart-context";
 import { useRouter } from "next/navigation";
-
 
 /* ---------- theme toggle ---------- */
 
@@ -49,7 +48,14 @@ export default function HeadNavBar() {
     role: "admin" | "costumer" | null;
   }>({ loading: true, role: null });
   const [cartOpen, setCartOpen] = useState(false);
-  const { items, totalItems, totalAmount, isHydrated, removeItem } = useCart();
+  const {
+    items,
+    totalItems,
+    totalAmount,
+    isHydrated,
+    removeItem,
+    updateQuantity,
+  } = useCart();
   const router = useRouter();
 
   useEffect(() => {
@@ -190,11 +196,11 @@ export default function HeadNavBar() {
                       Aún no tienes artículos agregados.
                     </p>
                   ) : (
-                    <div className="space-y-3 max-h-64 overflow-auto pr-1">
+                    <div className="pr-1 space-y-3 overflow-auto max-h-64">
                       {items.map((item) => (
                         <div
                           key={`${item.id}-${item.size}`}
-                          className="p-3 border rounded-xl bg-muted/30 space-y-1"
+                          className="p-3 space-y-1 border rounded-xl bg-muted/30"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
@@ -209,8 +215,46 @@ export default function HeadNavBar() {
                               </div>
                               <div className="flex items-center justify-between mt-1 text-xs">
                                 <span>Cantidad: {item.quantity}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      item.id,
+                                      item.size,
+                                      item.quantity - 1
+                                    )
+                                  }
+                                  disabled={item.quantity <= 1}
+                                >
+                                  -
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      item.id,
+                                      item.size,
+                                      item.quantity + 1
+                                    )
+                                  }
+                                  disabled={
+                                    item.maxAvailable !== undefined &&
+                                    item.quantity >= item.maxAvailable
+                                  }
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              <div className="flex items-center justify-between mt-1 text-xs">
                                 <span className="font-semibold">
-                                  {formatMoney(item.price_cents)}
+                                  Precio:{" "}
+                                  {formatMoney(
+                                    item.price_cents * item.quantity
+                                  )}
                                 </span>
                               </div>
                             </div>
@@ -218,11 +262,11 @@ export default function HeadNavBar() {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 text-muted-foreground"
+                              className="w-6 h-6 text-muted-foreground"
                               onClick={() => removeItem(item.id, item.size)}
                               aria-label={`Eliminar ${item.title}`}
                             >
-                              ×
+                              <X/>
                             </Button>
                           </div>
                         </div>

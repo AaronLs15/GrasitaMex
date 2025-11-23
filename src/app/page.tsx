@@ -15,11 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  CreditCard,
-  ChevronRight,
-  Star,
-} from "lucide-react";
+import { CreditCard, ChevronRight, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { BtnSuscribe } from "@/components/landing/btn-suscribe";
 import HeadNavBar from "@/components/HeadNavBar";
@@ -42,23 +38,31 @@ type Product = {
   price_cents: number;
   condition: "new" | "used" | string;
   created_at: string;
-  image_url: string | null;           // derivada de product_images
-  sizeOptions: CartSizeOption[];      // tallas disponibles con stock
+  image_url: string | null; // derivada de product_images
+  sizeOptions: CartSizeOption[]; // tallas disponibles con stock
 };
 
 /* ---------- utilidades ---------- */
 function moneyFromCents(cents: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format((cents ?? 0) / 100);
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format((cents ?? 0) / 100);
 }
-
 
 /* ---------- badges ---------- */
 function BadgeByStatus({ condition }: { condition: Product["condition"] }) {
   const map: Record<string, { label: string; className: string }> = {
     new: { label: "Nuevo", className: "bg-primary text-primary-foreground" },
-    used: { label: "Usado", className: "bg-secondary text-secondary-foreground" },
+    used: {
+      label: "Usado",
+      className: "bg-secondary text-secondary-foreground",
+    },
   };
-  const { label, className } = map[condition] ?? { label: String(condition), className: "border border-border" };
+  const { label, className } = map[condition] ?? {
+    label: String(condition),
+    className: "border border-border",
+  };
   return <Badge className={className}>{label}</Badge>;
 }
 
@@ -81,7 +85,9 @@ function FeaturedProductCard({ p }: { p: Product }) {
         </div>
       </CardHeader>
       <CardContent className="p-3 space-y-1 sm:p-4">
-        <CardTitle className="text-sm leading-tight sm:text-base line-clamp-2">{p.title}</CardTitle>
+        <CardTitle className="text-sm leading-tight sm:text-base line-clamp-2">
+          {p.title}
+        </CardTitle>
         <CardDescription className="text-xs font-semibold sm:text-sm">
           {moneyFromCents(p.price_cents)}
         </CardDescription>
@@ -118,7 +124,9 @@ function CategoryCardText({ title, href }: { title: string; href: string }) {
     <Link href={href} className="group">
       <Card className="h-full p-4 transition-colors border sm:p-5 rounded-2xl border-border hover:border-primary/50">
         <div className="flex items-center justify-between h-20 sm:h-28">
-          <h3 className="pr-2 text-base font-semibold sm:text-lg line-clamp-2">{title}</h3>
+          <h3 className="pr-2 text-base font-semibold sm:text-lg line-clamp-2">
+            {title}
+          </h3>
           <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 opacity-60 group-hover:opacity-100 shrink-0" />
         </div>
       </Card>
@@ -157,8 +165,19 @@ export default function Home() {
       setLoadingProds(true);
       const { data, error } = await supabase
         .from("products")
-        .select("id, title, price_cents, condition, created_at, product_images!left(url, position), product_variants(size_label, qty, active)")
+        .select(
+          `
+            id,
+            title,
+            price_cents,
+            condition,
+            created_at,
+            product_images!left (url, position),
+            product_variants!inner (size_label, qty, active)
+          `
+        )
         .eq("published", true)
+        .gt("product_variants.qty", 0)
         .order("created_at", { ascending: false })
         .limit(3);
 
@@ -168,8 +187,13 @@ export default function Home() {
       } else {
         // escoger la imagen de menor position (o null)
         const mapped: Product[] = (data as any[]).map((row) => {
-          const imgs = (row.product_images ?? []) as { url: string; position: number }[];
-          const first = imgs.sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0))[0];
+          const imgs = (row.product_images ?? []) as {
+            url: string;
+            position: number;
+          }[];
+          const first = imgs.sort(
+            (a, b) => (a?.position ?? 0) - (b?.position ?? 0)
+          )[0];
           const variants = (row.product_variants ?? []) as {
             size_label: string | null;
             qty?: number | null;
@@ -368,8 +392,12 @@ export function CategoriesSection({ categories, loadingCats }: {
 }) {
   return (
     <section className="px-4 py-6 mx-auto max-w-7xl">
-      <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Compra por categoría</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Explora nuestro catálogo y agrega al carrito.</p>
+      <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        Compra por categoría
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Explora nuestro catálogo y agrega al carrito.
+      </p>
 
       {loadingCats ? (
         <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
@@ -384,13 +412,18 @@ export function CategoriesSection({ categories, loadingCats }: {
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">Aún no hay categorías generales.</p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Aún no hay categorías generales.
+        </p>
       )}
     </section>
   );
 }
 
-export function FeaturedProductsSection({ recent, loadingProds }: {
+export function FeaturedProductsSection({
+  recent,
+  loadingProds,
+}: {
   recent: Product[] | null;
   loadingProds: boolean;
 }) {
@@ -398,11 +431,18 @@ export function FeaturedProductsSection({ recent, loadingProds }: {
     <section className="px-4 py-10 mx-auto max-w-7xl">
       <div className="flex flex-col items-start justify-between gap-2 mb-6 sm:flex-row sm:items-end sm:gap-0">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Destacados</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Los 3 artículos agregados más recientemente.</p>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Destacados
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Los 3 artículos agregados más recientemente.
+          </p>
         </div>
         <Button asChild variant="link" className="px-0 -ml-4 sm:ml-0">
-          <Link href="/modelos" className="flex items-center gap-1 text-sm">
+          <Link
+            href="/modelos"
+            className="flex items-center gap-1 text-m text-bold"
+          >
             Ver todo <ChevronRight className="w-4 h-4" />
           </Link>
         </Button>
@@ -416,15 +456,18 @@ export function FeaturedProductsSection({ recent, loadingProds }: {
         </div>
       ) : recent && recent.length ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
-          {recent.map((p) => <FeaturedProductCard key={p.id} p={p} />)}
+          {recent.map((p) => (
+            <FeaturedProductCard key={p.id} p={p} />
+          ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Aún no hay productos publicados.</p>
+        <p className="text-sm text-muted-foreground">
+          Aún no hay productos publicados.
+        </p>
       )}
     </section>
   );
 }
-
 
 function Footer() {
   return (

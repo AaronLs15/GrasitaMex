@@ -11,6 +11,7 @@ import {
   AddToCartControl,
   type SizeOption as CartSizeOption,
 } from "@/components/cart/AddToCartControl";
+import { array } from "zod";
 
 /* ---------- tipos ---------- */
 
@@ -80,7 +81,7 @@ function ModelosContent() {
               kind
             )
           ),
-          product_variants (
+          product_variants!inner (
             size_label,
             qty,
             active
@@ -88,6 +89,7 @@ function ModelosContent() {
         `
         )
         .eq("published", true)
+        .gt("product_variants.qty", 0)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -196,7 +198,11 @@ function ModelosContent() {
       Array.from(
         new Set(
           products
-            .flatMap((p) => p.availableSizesCm)
+            .flatMap((p) => p.sizeOptions ?? []) // todas las opciones de todos los productos
+            .map((opt) => {
+              const match = opt.label.match(/(\d+(\.\d+)?)/);
+              return match ? parseFloat(match[1]) : null;
+            })
             .filter((s): s is number => typeof s === "number" && s > 0)
         )
       ).sort((a, b) => a - b),
@@ -231,9 +237,18 @@ function ModelosContent() {
         selectedCategories.length === 0 ||
         (product.category && selectedCategories.includes(product.category));
 
+      // convertir TODAS las labels de sizeOptions a cm para que pueda filtrar por cualquier talla (hotfix)
+      const productSizesCm =
+        product.sizeOptions
+          ?.map((opt) => {
+            const match = opt.label.match(/(\d+(\.\d+)?)/);
+            return match ? parseFloat(match[1]) : null;
+          })
+          .filter((s): s is number => typeof s === "number" && s > 0) ?? [];
+
       const matchesSize =
         selectedSizes.length === 0 ||
-        product.availableSizesCm.some((s) => selectedSizes.includes(s));
+        productSizesCm.some((sizeCm) => selectedSizes.includes(sizeCm));
 
       const text = searchText.trim().toLowerCase();
       const matchesSearch =
