@@ -48,7 +48,7 @@ export default function VariantsClient({
   const router = useRouter()
 
   const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: { sku: '', size_label: '', qty: 1, active: true },
   })
 
@@ -179,27 +179,27 @@ export default function VariantsClient({
                     <FormControl><Input {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
-                )}/>
+                )} />
                 <FormField control={form.control} name="size_label" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Talla</FormLabel>
                     <FormControl><Input placeholder="US M 9 / MX 27" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
-                )}/>
+                )} />
                 <FormField control={form.control} name="qty" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cantidad</FormLabel>
                     <FormControl><Input type="number" min="0" step="1" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
-                )}/>
+                )} />
                 <FormField control={form.control} name="active" render={({ field }) => (
                   <FormItem className="flex items-center justify-between space-y-0">
                     <FormLabel>Activa</FormLabel>
                     <FormControl><Switch checked={!!field.value} onCheckedChange={field.onChange} /></FormControl>
                   </FormItem>
-                )}/>
+                )} />
               </div>
 
               <DialogFooter>

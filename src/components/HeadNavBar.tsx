@@ -87,7 +87,7 @@ export default function HeadNavBar() {
       setAuthState({ loading: false, role: normalizedRole });
     };
 
-    supa.auth.getSession().then(({ data }) => {
+    supa.auth.getSession().then(({ data }: { data: any }) => {
       resolveRole(data.session?.user.id ?? null);
     });
 
@@ -109,10 +109,10 @@ export default function HeadNavBar() {
   const authLabel = authState.loading
     ? "Cargando..."
     : hasSession
-    ? authState.role === "admin"
-      ? "admin"
-      : <User/>
-    : "Iniciar sesión";
+      ? authState.role === "admin"
+        ? "Panel admin"
+        : "Panel cliente"
+      : "Iniciar sesión";
 
   const formatMoney = (cents: number) =>
     new Intl.NumberFormat("es-MX", {
@@ -140,11 +140,8 @@ export default function HeadNavBar() {
             <Link href="/" className="text-sm hover:underline">
               Inicio
             </Link>
-            <Link href="/categorias" className="text-sm hover:underline">
-              Categorías
-            </Link>
             <Link href="/modelos" className="text-sm hover:underline">
-              Ver Todo
+              Ver Productos
             </Link>
           </nav>
           <div className="flex items-center gap-2">
@@ -177,11 +174,10 @@ export default function HeadNavBar() {
               </Button>
               <div
                 id="cart-accordion"
-                className={`absolute right-0 mt-2 w-80 rounded-2xl border bg-background shadow-lg transition-all duration-200 ${
-                  cartOpen
-                    ? "opacity-100 visible translate-y-0"
-                    : "invisible opacity-0 -translate-y-2"
-                }`}
+                className={`absolute right-0 mt-2 w-80 rounded-2xl border bg-background shadow-lg transition-all duration-200 ${cartOpen
+                  ? "opacity-100 visible translate-y-0"
+                  : "invisible opacity-0 -translate-y-2"
+                  }`}
               >
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between text-sm font-semibold">

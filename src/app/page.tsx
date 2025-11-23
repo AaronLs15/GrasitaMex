@@ -104,8 +104,8 @@ function FeaturedProductCard({ p }: { p: Product }) {
         />
         <div className="flex flex-col items-stretch justify-between gap-2 text-xs sm:flex-row sm:items-center sm:text-sm">
           <Link
-            href={`/producto/${p.id}`}
-            className="font-medium text-center hover:underline sm:text-left"
+            href={`/modelos/${p.id}`}
+            className="text-center font-medium hover:underline sm:text-left"
           >
             Ver detalles
           </Link>
@@ -386,10 +386,7 @@ export default function Home() {
 
 /* ---------- helpers UI ---------- */
 
-export function CategoriesSection({
-  categories,
-  loadingCats,
-}: {
+export function CategoriesSection({ categories, loadingCats }: {
   categories: Category[] | null;
   loadingCats: boolean;
 }) {
@@ -404,21 +401,14 @@ export function CategoriesSection({
 
       {loadingCats ? (
         <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-20 sm:h-28 animate-pulse rounded-2xl bg-muted"
-            />
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-20 sm:h-28 animate-pulse rounded-2xl bg-muted" />
           ))}
         </div>
       ) : categories && categories.length ? (
         <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
           {categories.map((c) => (
-            <CategoryCardText
-              key={c.id}
-              title={c.name}
-              href={`/categoria/${c.slug}`}
-            />
+            <CategoryCardText key={c.id} title={c.name} href={`/modelos?category=${encodeURIComponent(c.name)}`} />
           ))}
         </div>
       ) : (
@@ -460,11 +450,8 @@ export function FeaturedProductsSection({
 
       {loadingProds ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-64 sm:h-72 animate-pulse rounded-2xl bg-muted"
-            />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-64 sm:h-72 animate-pulse rounded-2xl bg-muted" />
           ))}
         </div>
       ) : recent && recent.length ? (

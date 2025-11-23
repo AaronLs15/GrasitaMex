@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import HeadNavBar from "@/components/HeadNavBar";
 import { supabase } from "@/lib/supabase/client";
@@ -22,7 +23,7 @@ type Product = {
   created_at: string;
   image_url: string | null; // derivada de product_images
   category: string | null; // categoría general principal
-  sizeCm: number | null; // talla principal en cm (parseada de size_label)
+  availableSizesCm: number[]; // tallas disponibles en cm (todas las variantes)
   sizeOptions: CartSizeOption[]; // tallas disponibles con stock
 };
 
@@ -35,7 +36,10 @@ function moneyFromCents(cents: number) {
   }).format((cents ?? 0) / 100);
 }
 
-export default function ModelosPage() {
+function ModelosContent() {
+  const searchParams = useSearchParams();
+  const initialCategory = searchParams.get("category");
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -43,6 +47,13 @@ export default function ModelosPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [searchText, setSearchText] = useState("");
+
+  // Set initial category from URL
+  useEffect(() => {
+    if (initialCategory) {
+      setSelectedCategories([initialCategory]);
+    }
+  }, [initialCategory]);
 
   /* ---------- fetch a Supabase ---------- */
 
@@ -135,17 +146,20 @@ export default function ModelosPage() {
             sizeMap.size > 0
               ? Array.from(sizeMap.keys())
               : variants
-                  .map((v) => v.size_label?.trim())
-                  .filter((label): label is string => Boolean(label));
+                .map((v) => v.size_label?.trim())
+                .filter((label): label is string => Boolean(label));
 
-          let sizeCm: number | null = null;
+          const availableSizesCm: number[] = [];
           for (const label of labelPool) {
             const match = label.match(/(\d+(\.\d+)?)/);
             if (match) {
-              sizeCm = parseFloat(match[1]);
-              break;
+              const val = parseFloat(match[1]);
+              if (!availableSizesCm.includes(val)) {
+                availableSizesCm.push(val);
+              }
             }
           }
+          availableSizesCm.sort((a, b) => a - b);
 
           const sizeOptions = Array.from(sizeMap.entries()).map(
             ([label, available]) => ({ label, available })
@@ -159,7 +173,7 @@ export default function ModelosPage() {
             created_at: row.created_at,
             image_url: firstImg,
             category: firstCatName,
-            sizeCm,
+            availableSizesCm,
             sizeOptions,
           };
         }) ?? [];
@@ -414,8 +428,12 @@ export default function ModelosPage() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{product.category ?? "Sin categoría"}</span>
-                        {product.sizeCm && product.sizeCm > 0 && (
-                          <span>{product.sizeCm.toFixed(1)} cm</span>
+                        {product.availableSizesCm.length > 0 && (
+                          <span>
+                            {product.availableSizesCm.length === 1
+                              ? `${product.availableSizesCm[0].toFixed(1)} cm`
+                              : `${product.availableSizesCm.length} tallas`}
+                          </span>
                         )}
                       </div>
                       <AddToCartControl
@@ -432,7 +450,7 @@ export default function ModelosPage() {
                         size="sm"
                         className="w-full mt-2 rounded-xl"
                       >
-                        <Link href={`/producto/${product.id}`}>
+                        <Link href={`/modelos/${product.id}`}>
                           Ver detalle
                         </Link>
                       </Button>
@@ -445,5 +463,13 @@ export default function ModelosPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ModelosPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <ModelosContent />
+    </Suspense>
   );
 }

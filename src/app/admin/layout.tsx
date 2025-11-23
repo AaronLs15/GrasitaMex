@@ -35,6 +35,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin/products" className="transition-colors hover:text-foreground">
                 Productos
               </Link>
+              <Link href="/admin/coupons" className="transition-colors hover:text-foreground">
+                Cupones
+              </Link>
             </nav>
             <div className="flex items-center gap-3 text-sm">
               <span className="text-muted-foreground truncate max-w-[200px]">
@@ -57,22 +60,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 <WebButton />
               </div>
             </div>
-            
+
             {/* Bottom row: Navigation links */}
             <nav className="flex items-center gap-1 py-2 overflow-x-auto">
-              <Link 
-                href="/admin" 
+              <Link
+                href="/admin"
                 className="px-3 py-1.5 text-sm font-medium whitespace-nowrap hover:bg-muted rounded-md transition-colors"
               >
                 Dashboard
               </Link>
-              <Link 
+              <Link
                 href="/admin/categories"
                 className="px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted rounded-md transition-colors"
               >
                 Categorías
               </Link>
-              <Link 
+              <Link
                 href="/admin/products"
                 className="px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted rounded-md transition-colors"
               >
@@ -82,7 +85,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </header>
-      
+
       <main className="p-4 mx-auto sm:p-6 max-w-7xl">
         {children}
         <Toaster />
