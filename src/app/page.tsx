@@ -109,9 +109,6 @@ function FeaturedProductCard({ p }: { p: Product }) {
           >
             Ver detalles
           </Link>
-          <Button asChild size="sm" className="w-full rounded-xl sm:w-auto">
-            <Link href={`/checkout?pid=${p.id}`}>Comprar</Link>
-          </Button>
         </div>
       </CardFooter>
     </Card>

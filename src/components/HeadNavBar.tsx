@@ -45,7 +45,7 @@ function ThemeToggle() {
 export default function HeadNavBar() {
   const [authState, setAuthState] = useState<{
     loading: boolean;
-    role: "admin" | "costumer" | null;
+    role: "admin" | "customer" | null;
   }>({ loading: true, role: null });
   const [cartOpen, setCartOpen] = useState(false);
   const {
@@ -81,8 +81,8 @@ export default function HeadNavBar() {
         console.error("Error al obtener el rol del usuario", error);
       }
 
-      const normalizedRole: "admin" | "costumer" =
-        profile?.role === "admin" ? "admin" : "costumer";
+      const normalizedRole: "admin" | "customer" =
+        profile?.role === "admin" ? "admin" : "customer";
 
       setAuthState({ loading: false, role: normalizedRole });
     };
@@ -104,7 +104,7 @@ export default function HeadNavBar() {
   }, []);
 
   const hasSession = Boolean(authState.role);
-  const dashboardHref = authState.role === "admin" ? "/admin" : "/costumer";
+  const dashboardHref = authState.role === "admin" ? "/admin" : "/customer";
   const authHref = hasSession ? dashboardHref : "/login";
   const authLabel = authState.loading
     ? "Cargando..."
@@ -266,7 +266,7 @@ export default function HeadNavBar() {
                               onClick={() => removeItem(item.id, item.size)}
                               aria-label={`Eliminar ${item.title}`}
                             >
-                              <X/>
+                              <X />
                             </Button>
                           </div>
                         </div>

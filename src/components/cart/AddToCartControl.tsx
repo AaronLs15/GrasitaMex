@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ComponentProps } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -65,6 +66,8 @@ export function AddToCartControl({
     : 0;
   const canAddSelected = Boolean(selectedOption) && remaining > 0;
 
+  const router = useRouter();
+
   const handleAdd = () => {
     if (!hasSizes) return;
     if (!selectedSize) {
@@ -73,7 +76,7 @@ export function AddToCartControl({
         description: "Debes elegir una talla antes de agregar al carrito.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
     if (!canAddSelected) {
@@ -83,7 +86,7 @@ export function AddToCartControl({
           "No hay suficiente inventario para la talla seleccionada.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
     addItem({
@@ -99,15 +102,23 @@ export function AddToCartControl({
       title: "Agregado al carrito",
       description: `${title} (${selectedSize}) se agregó correctamente.`,
     });
+    return true;
+  };
+
+  const handleBuyNow = () => {
+    const success = handleAdd();
+    if (success) {
+      router.push("/checkout");
+    }
   };
 
   const helperMessage = !hasSizes
     ? "Sin tallas disponibles por ahora."
     : selectedOption
-    ? remaining > 0
-      ? `Disponibles: ${remaining} (de ${selectedOption.available})`
-      : "Sin stock para esta talla."
-    : "Selecciona una talla para ver disponibilidad.";
+      ? remaining > 0
+        ? `Disponibles: ${remaining} (de ${selectedOption.available})`
+        : "Sin stock para esta talla."
+      : "Selecciona una talla para ver disponibilidad.";
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -132,15 +143,25 @@ export function AddToCartControl({
         </SelectContent>
       </Select>
       <p className="text-xs text-muted-foreground">{helperMessage}</p>
-      <Button
-        size={buttonSize}
-        variant={buttonVariant}
-        className="w-full rounded-xl"
-        disabled={!canAddSelected}
-        onClick={handleAdd}
-      >
-        {buttonText}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          size={buttonSize}
+          variant={buttonVariant}
+          className="flex-1 rounded-xl"
+          disabled={!canAddSelected}
+          onClick={handleAdd}
+        >
+          {buttonText}
+        </Button>
+        <Button
+          size={buttonSize}
+          className="flex-1 rounded-xl"
+          disabled={!canAddSelected}
+          onClick={handleBuyNow}
+        >
+          Comprar
+        </Button>
+      </div>
     </div>
   );
 }

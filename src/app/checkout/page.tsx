@@ -12,25 +12,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Loader2, Tag } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
-
-const money = (cents: number) =>
-  new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    minimumFractionDigits: 2,
-  }).format((cents ?? 0) / 100);
+import { formatMoney } from "@/lib/mercadopago";
+import { AddressForm, type Address } from "@/components/checkout/AddressForm";
+import { LoadingOverlay } from "@/components/checkout/LoadingOverlay";
 
 export default function CheckoutPage() {
-  const [preferenceId, setPreferenceId] = useState<string>("null");
-  const { items, totalAmount, removeItem } = useCart();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { items, totalAmount, removeItem, clearCart } = useCart();
   const { toast } = useToast();
   const hasItems = items.length > 0;
+  const [user, setUser] = useState<any>(null);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Coupon state
   const [couponCode, setCouponCode] = useState("");
@@ -40,48 +40,97 @@ export default function CheckoutPage() {
   } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
-  const shipping = !hasItems || totalAmount >= 200000 ? 0 : 1500; // MX$15 de envío si no alcanza el mínimo
-
+  const shipping = !hasItems || totalAmount >= 200000 ? 0 : 1500;
   const discount = appliedCoupon?.discountAmount ?? 0;
   const grandTotal = Math.max(0, totalAmount + shipping - discount);
 
-  initMercadoPago(process.env.NEXT_PUBLIC_MP_KEY!);
+  // Check auth
+  useEffect(() => {
+    const checkUser = async () => {
+      const supa = supabaseBrowser();
+      const { data } = await supa.auth.getUser();
+      setUser(data.user);
+    };
+    checkUser();
+  }, []);
 
-  const getPreference = async () => {
+  const handleCheckout = async () => {
+    if (!user) {
+      toast({
+        title: "Debes iniciar sesión",
+        description: "Por favor inicia sesión para continuar con tu compra.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedAddress) {
+      toast({
+        title: "Dirección requerida",
+        description: "Por favor completa los datos de envío.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!acceptedTerms) {
+      toast({
+        title: "Términos y condiciones",
+        description: "Debes aceptar los términos y condiciones para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasItems) return;
+
+    setIsProcessing(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_LINK_PROYECTO}/api/mercadopago/create-preference`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            items: [
-              {
-                title: items[0].title,
-                quantity: items[0].quantity,
-                unit_price: items[0].price_cents,
-              },
-            ],
-          }),
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setPreferenceId(data.preference_id);
-        console.log(data);
+      // Formatear items para la API
+      const formattedItems = items.map((item: any) => ({
+        id: item.id,
+        product_id: item.id,
+        variant_id: item.variant_id || 0,
+        sku: item.sku || `SKU-${item.id}`,
+        title: item.title,
+        size: item.size,
+        price_cents: item.price_cents,
+        quantity: item.quantity,
+      }));
+
+      const response = await fetch("/api/checkout/preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: formattedItems,
+          shipping_address: selectedAddress,
+          coupon_code: appliedCoupon?.code || null,
+          user_id: user.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error al crear la preferencia");
       }
-    } catch (error) {
-      console.error("error fetching", error);
+
+      // Redirigir directamente a MercadoPago
+      if (data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        throw new Error("No se recibió la URL de pago");
+      }
+    } catch (error: any) {
+      console.error("Error creating preference:", error);
+      setIsProcessing(false);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo procesar tu pedido.",
+        variant: "destructive",
+      });
     }
   };
-
-  useEffect(() => {
-    if (hasItems) {
-      getPreference();
-    }
-  }, [hasItems]);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -119,7 +168,7 @@ export default function CheckoutPage() {
       }
       if (coupon.min_purchase_cents > totalAmount) {
         throw new Error(
-          `Compra mínima de ${money(coupon.min_purchase_cents)} requerida.`
+          `Compra mínima de ${formatMoney(coupon.min_purchase_cents)} requerida.`
         );
       }
 
@@ -133,16 +182,6 @@ export default function CheckoutPage() {
           discountAmount = Math.min(discountAmount, coupon.max_discount_cents);
         }
       } else {
-        discountAmount = coupon.discount_value * 100; // asumiendo que value viene en pesos si es fixed
-        // Si en DB guardamos centavos para fixed, quitar * 100.
-        // En el form guardamos directo el valor del input.
-        // Si el input es "100 pesos", guardamos 100.
-        // Ajuste: en form guardamos value tal cual.
-        // Si es fixed_amount, asumimos que el valor ingresado son PESOS, así que convertimos a centavos aquí.
-        // O mejor, estandarizar en DB.
-        // Revisando form: discount_value se guarda directo.
-        // Si es fixed, asumamos que son PESOS para el usuario, pero centavos para cálculos.
-        // Vamos a asumir que discount_value para fixed es en PESOS.
         discountAmount = coupon.discount_value * 100;
       }
 
@@ -156,7 +195,7 @@ export default function CheckoutPage() {
 
       toast({
         title: "Cupón aplicado",
-        description: `Se descontaron ${money(discountAmount)}.`,
+        description: `Se descontaron ${formatMoney(discountAmount)}.`,
       });
     } catch (err: any) {
       toast({
@@ -173,15 +212,6 @@ export default function CheckoutPage() {
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode("");
-  };
-
-  const handleConfirm = () => {
-    if (!hasItems) return;
-    toast({
-      title: "Procesando pago",
-      description:
-        "Integración pendiente: aquí conectarías tu pasarela (Mercado Pago, Stripe, etc.).",
-    });
   };
 
   if (!hasItems) {
@@ -211,172 +241,232 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <HeadNavBar />
-      <main className="px-4 py-10 mx-auto max-w-6xl">
-        <div className="space-y-6">
-          <div>
-            <p className="text-sm font-semibold uppercase text-primary">
-              Checkout
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">
-              Revisa tu pedido antes de pagar
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Confirmaremos existencias por talla antes de enviarte al pago.
-            </p>
-          </div>
+    <>
+      {isProcessing && <LoadingOverlay />}
 
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-            <section className="space-y-4">
-              {items.map((item) => {
-                const lineTotal = item.price_cents * item.quantity;
-                return (
-                  <Card
-                    key={`${item.id}-${item.size}`}
-                    className="rounded-2xl border bg-card/80"
-                  >
-                    <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex-1">
-                        <p className="text-base font-semibold">{item.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Talla:{" "}
-                          <span className="font-medium">{item.size}</span>
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Cantidad:{" "}
-                          <span className="font-medium">{item.quantity}</span>
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2 text-right">
+      <div className="min-h-screen bg-background text-foreground">
+        <HeadNavBar />
+        <main className="px-4 py-10 mx-auto max-w-6xl">
+          <div className="space-y-6">
+            <div>
+              <p className="text-sm font-semibold uppercase text-primary">
+                Checkout
+              </p>
+              <h1 className="mt-2 text-3xl font-bold">
+                Revisa tu pedido antes de pagar
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Completa tus datos de envío para continuar
+              </p>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+              <div className="space-y-6">
+                {/* Items del carrito */}
+                <section className="space-y-4">
+                  {items.map((item) => {
+                    const lineTotal = item.price_cents * item.quantity;
+                    return (
+                      <Card
+                        key={`${item.id}-${item.size}`}
+                        className="rounded-2xl border bg-card/80"
+                      >
+                        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex-1">
+                            <p className="text-base font-semibold">{item.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Talla:{" "}
+                              <span className="font-medium">{item.size}</span>
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Cantidad:{" "}
+                              <span className="font-medium">{item.quantity}</span>
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2 text-right">
+                            <div>
+                              <p className="text-sm text-muted-foreground">
+                                Precio unitario
+                              </p>
+                              <p className="text-lg font-semibold">
+                                {formatMoney(item.price_cents)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Subtotal: {formatMoney(lineTotal)}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="text-sm text-destructive hover:text-destructive"
+                              onClick={() => removeItem(item.id, item.size)}
+                            >
+                              Eliminar
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </section>
+
+                {/* Formulario de dirección */}
+                {user && (
+                  <AddressForm
+                    userId={user.id}
+                    onAddressChange={setSelectedAddress}
+                  />
+                )}
+              </div>
+
+              <aside className="space-y-6">
+                {/* Cupón */}
+                <Card className="rounded-2xl">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Tag className="w-4 h-4" />
+                      Cupón de descuento
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between p-3 border border-dashed rounded-xl bg-primary/5 border-primary/30">
                         <div>
-                          <p className="text-sm text-muted-foreground">
-                            Precio unitario
-                          </p>
-                          <p className="text-lg font-semibold">
-                            {money(item.price_cents)}
+                          <p className="text-sm font-semibold text-primary">
+                            {appliedCoupon.code}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Subtotal: {money(lineTotal)}
+                            Ahorras {formatMoney(appliedCoupon.discountAmount)}
                           </p>
                         </div>
                         <Button
-                          type="button"
                           variant="ghost"
-                          className="text-sm text-destructive hover:text-destructive"
-                          onClick={() => removeItem(item.id, item.size)}
+                          size="sm"
+                          onClick={handleRemoveCoupon}
+                          className="h-8 text-xs hover:text-destructive"
                         >
-                          Eliminar
+                          Quitar
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </section>
-
-            <aside className="space-y-6">
-              {/* Cupón */}
-              <Card className="rounded-2xl">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Tag className="w-4 h-4" />
-                    Cupón de descuento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-3 border border-dashed rounded-xl bg-primary/5 border-primary/30">
-                      <div>
-                        <p className="text-sm font-semibold text-primary">
-                          {appliedCoupon.code}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Ahorras {money(appliedCoupon.discountAmount)}
-                        </p>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Código"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          className="uppercase"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={handleApplyCoupon}
+                          disabled={validatingCoupon || !couponCode}
+                        >
+                          {validatingCoupon ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Aplicar"
+                          )}
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRemoveCoupon}
-                        className="h-8 text-xs hover:text-destructive"
-                      >
-                        Quitar
-                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Resumen */}
+                <Card className="rounded-2xl">
+                  <CardHeader>
+                    <CardTitle>Resumen</CardTitle>
+                    <CardDescription>
+                      Verifica montos antes de continuar al pago.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Productos</span>
+                      <span>{formatMoney(totalAmount)}</span>
                     </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Código"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        className="uppercase"
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Envío</span>
+                      <span>{shipping === 0 ? "Gratis" : formatMoney(shipping)}</span>
+                    </div>
+                    {appliedCoupon && (
+                      <div className="flex items-center justify-between text-sm text-primary">
+                        <span>Descuento ({appliedCoupon.code})</span>
+                        <span>-{formatMoney(appliedCoupon.discountAmount)}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex items-center justify-between text-base font-semibold">
+                      <span>Total</span>
+                      <span>{formatMoney(grandTotal)}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Envío gratis a partir de $2,000 MXN en productos.
+                    </p>
+
+                    {/* Términos y condiciones */}
+                    <div className="flex items-start gap-2 pt-2">
+                      <Checkbox
+                        id="terms"
+                        checked={acceptedTerms}
+                        onCheckedChange={(checked) =>
+                          setAcceptedTerms(checked as boolean)
+                        }
                       />
-                      <Button
-                        variant="outline"
-                        onClick={handleApplyCoupon}
-                        disabled={validatingCoupon || !couponCode}
+                      <Label
+                        htmlFor="terms"
+                        className="text-sm font-normal leading-tight cursor-pointer"
                       >
-                        {validatingCoupon ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                        Acepto los{" "}
+                        <Link
+                          href="/terminos"
+                          className="text-primary hover:underline"
+                          target="_blank"
+                        >
+                          términos y condiciones
+                        </Link>
+                      </Label>
+                    </div>
+
+                    {!user ? (
+                      <Button asChild className="w-full rounded-xl">
+                        <Link href="/login">Iniciar sesión para continuar</Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleCheckout}
+                        disabled={
+                          !acceptedTerms ||
+                          isProcessing ||
+                          !selectedAddress
+                        }
+                        className="w-full rounded-xl"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Procesando...
+                          </>
                         ) : (
-                          "Aplicar"
+                          "Proceder al pago"
                         )}
                       </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
 
-              {/* Resumen */}
-              <Card className="rounded-2xl">
-                <CardHeader>
-                  <CardTitle>Resumen</CardTitle>
-                  <CardDescription>
-                    Verifica montos antes de continuar al pago.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Productos</span>
-                    <span>{money(totalAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Envío</span>
-                    <span>{shipping === 0 ? "Gratis" : money(shipping)}</span>
-                  </div>
-                  {appliedCoupon && (
-                    <div className="flex items-center justify-between text-sm text-primary">
-                      <span>Descuento ({appliedCoupon.code})</span>
-                      <span>-{money(appliedCoupon.discountAmount)}</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex items-center justify-between text-base font-semibold">
-                    <span>Total</span>
-                    <span>{money(grandTotal)}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Envío gratis a partir de $2,000 MXN en productos.
-                  </p>
-                  {preferenceId && (
-                    
-                  <Wallet initialization={{ preferenceId: preferenceId }} />
-                    
-                  )}
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="w-full rounded-xl"
-                  >
-                    <Link href="/modelos">Seguir comprando</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </aside>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full rounded-xl"
+                    >
+                      <Link href="/modelos">Seguir comprando</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </aside>
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }

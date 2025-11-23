@@ -7,6 +7,7 @@ import { CartProvider } from '@/context/cart-context'
 import { Toaster } from '@/components/ui/sonner'
 import { Suspense } from 'react'
 import AnalyticsTracker from "@/components/analytics-tracker";
+import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -30,10 +31,17 @@ export default function RootLayout({
         <Suspense>
           <AnalyticsTracker />
         </Suspense>
-        <CartProvider>
-          {children}
-          <Toaster />
-        </CartProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <CartProvider>
+            {children}
+            <Toaster />
+          </CartProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
