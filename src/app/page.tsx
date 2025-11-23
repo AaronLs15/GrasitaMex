@@ -69,11 +69,11 @@ function FeaturedProductCard({ p }: { p: Product }) {
     <Card className="overflow-hidden transition-colors border group rounded-2xl border-primary/30 hover:border-primary/60">
       <CardHeader className="p-0">
         <div className="relative w-full overflow-hidden aspect-square sm:aspect-4/3">
-          <Image 
-            src={img} 
-            alt={p.title} 
-            fill 
-            className="object-cover transition-transform duration-300 group-hover:scale-105" 
+          <Image
+            src={img}
+            alt={p.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
             <BadgeByStatus condition={p.condition} />
@@ -98,7 +98,7 @@ function FeaturedProductCard({ p }: { p: Product }) {
         />
         <div className="flex flex-col items-stretch justify-between gap-2 text-xs sm:flex-row sm:items-center sm:text-sm">
           <Link
-            href={`/producto/${p.id}`}
+            href={`/modelos/${p.id}`}
             className="text-center font-medium hover:underline sm:text-left"
           >
             Ver detalles
@@ -211,7 +211,7 @@ export default function Home() {
         WhatsApp
       </div>
 
-      <HeadNavBar/>
+      <HeadNavBar />
 
       {/* Hero */}
       <section className="relative">
@@ -362,8 +362,8 @@ export default function Home() {
 
 /* ---------- helpers UI ---------- */
 
-export function CategoriesSection({ categories, loadingCats }: { 
-  categories: Category[] | null; 
+export function CategoriesSection({ categories, loadingCats }: {
+  categories: Category[] | null;
   loadingCats: boolean;
 }) {
   return (
@@ -373,14 +373,14 @@ export function CategoriesSection({ categories, loadingCats }: {
 
       {loadingCats ? (
         <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
-          {[1,2,3,4].map(i => (
+          {[1, 2, 3, 4].map(i => (
             <div key={i} className="h-20 sm:h-28 animate-pulse rounded-2xl bg-muted" />
           ))}
         </div>
       ) : categories && categories.length ? (
         <div className="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
           {categories.map((c) => (
-            <CategoryCardText key={c.id} title={c.name} href={`/categoria/${c.slug}`} />
+            <CategoryCardText key={c.id} title={c.name} href={`/modelos?category=${encodeURIComponent(c.name)}`} />
           ))}
         </div>
       ) : (
@@ -410,7 +410,7 @@ export function FeaturedProductsSection({ recent, loadingProds }: {
 
       {loadingProds ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="h-64 sm:h-72 animate-pulse rounded-2xl bg-muted" />
           ))}
         </div>

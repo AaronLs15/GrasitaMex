@@ -1,8 +1,10 @@
 // app/admin/products/page.tsx
 import { supabaseServer } from '@/lib/supabase/server'
 import { Card } from '@/components/ui/card'
-import ProductsClient from './widgets'
 import RowActions from './row-actions'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 
 export default async function ProductsPage() {
   const supa = await supabaseServer()
@@ -22,7 +24,12 @@ export default async function ProductsPage() {
     <div className="p-4 space-y-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold sm:text-2xl">Productos</h1>
-        <ProductsClient initial={prods ?? []} categories={categories} />
+        <Button asChild>
+          <Link href="/admin/products/new">
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo producto
+          </Link>
+        </Button>
       </div>
 
       {/* Vista de tabla para desktop */}
@@ -51,7 +58,7 @@ export default async function ProductsPage() {
                     <div className="text-xs text-muted-foreground">{p.model_name ?? '-'}</div>
                   </td>
                   <td className="p-3">{p.condition}</td>
-                  <td className="p-3 whitespace-nowrap">{p.currency} ${(p.price_cents/100).toFixed(2)}</td>
+                  <td className="p-3 whitespace-nowrap">{p.currency} ${(p.price_cents / 100).toFixed(2)}</td>
                   <td className="p-3">{p.published ? 'Sí' : 'No'}</td>
                   <td className="p-3">
                     <RowActions product={p} categories={categories} />
@@ -81,11 +88,10 @@ export default async function ProductsPage() {
                   <p className="text-xs truncate text-muted-foreground">{p.slug}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    p.published 
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                  }`}>
+                  <span className={`text-xs px-2 py-1 rounded-full ${p.published
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                    }`}>
                     {p.published ? 'Publicado' : 'Borrador'}
                   </span>
                 </div>
@@ -106,7 +112,7 @@ export default async function ProductsPage() {
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Precio:</span>
-                  <p className="text-lg font-medium">{p.currency} ${(p.price_cents/100).toFixed(2)}</p>
+                  <p className="text-lg font-medium">{p.currency} ${(p.price_cents / 100).toFixed(2)}</p>
                 </div>
               </div>
 
@@ -116,7 +122,7 @@ export default async function ProductsPage() {
             </div>
           </Card>
         ))}
-        
+
         {(!prods || prods.length === 0) && (
           <Card className="p-8">
             <p className="text-center text-muted-foreground">

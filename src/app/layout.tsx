@@ -1,28 +1,40 @@
+
 // app/layout.tsx
 import type { Metadata } from 'next'
 import './global.css'
-import { Toaster } from 'sonner'
+import { Inter } from 'next/font/google'
 import { CartProvider } from '@/context/cart-context'
+import { Toaster } from '@/components/ui/sonner'
+import { Suspense } from 'react'
+import AnalyticsTracker from "@/components/analytics-tracker";
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'GrasitaMex',
   description: 'Panel de administración',
-  authors: [{name: "Aaron Lujano"}],
-  icons : {
+  authors: [{ name: "Aaron Lujano" }],
+  icons: {
     icon: '/logoGrasitaMex.ico'
   }
-
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="es">
-      <body>
+    <html lang="es" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Suspense>
+          <AnalyticsTracker />
+        </Suspense>
         <CartProvider>
           {children}
           <Toaster />
         </CartProvider>
       </body>
     </html>
-  )
+  );
 }

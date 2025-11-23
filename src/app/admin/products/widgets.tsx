@@ -97,7 +97,7 @@ export default function ProductsClient({
   );
 
   const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       title: "",
       slug: "",
@@ -209,9 +209,8 @@ export default function ProductsClient({
 
       toast({
         title: "Producto creado",
-        description: `${catIds.length} categoría(s) asignadas${
-          files?.length ? " e imágenes subidas" : ""
-        }.`,
+        description: `${catIds.length} categoría(s) asignadas${files?.length ? " e imágenes subidas" : ""
+          }.`,
       });
       setOpen(false);
       startTransition(() => router.refresh());
@@ -297,6 +296,7 @@ export default function ProductsClient({
                       <FormControl>
                         <Input
                           {...field}
+                          value={field.value ?? ''}
                           placeholder="Nike, New Balance, etc."
                         />
                       </FormControl>
@@ -311,7 +311,7 @@ export default function ProductsClient({
                     <FormItem>
                       <FormLabel>Modelo</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Jordan 1 High" />
+                        <Input {...field} value={field.value ?? ''} placeholder="Jordan 1 High" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -403,6 +403,7 @@ export default function ProductsClient({
                       <Textarea
                         rows={4}
                         {...field}
+                        value={field.value ?? ''}
                         placeholder="Detalles, colorway, etc."
                       />
                     </FormControl>

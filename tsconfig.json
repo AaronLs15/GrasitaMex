@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "src/app/api/mercadopago/create-preference/route.js"  ],
   "exclude": ["node_modules"]
 }
