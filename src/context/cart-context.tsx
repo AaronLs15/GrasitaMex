@@ -15,6 +15,7 @@ export type CartItem = {
   price_cents: number;
   size: string;
   quantity: number;
+  maxAvailable?: number;
 };
 
 type AddItemPayload = Omit<CartItem, "quantity"> & { quantity?: number };
@@ -72,9 +73,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       if (existingIndex >= 0) {
         const clone = [...prev];
+        const existing = clone[existingIndex];
+
+        const max = payload.maxAvailable ?? existing.maxAvailable;
+
+        const newQuantity = max
+          ? Math.min(existing.quantity + quantity, max)
+          : existing.quantity + quantity;
+
         clone[existingIndex] = {
-          ...clone[existingIndex],
-          quantity: clone[existingIndex].quantity + quantity,
+          ...existing,
+          quantity: newQuantity,
+          maxAvailable: max,
         };
         return clone;
       }
@@ -87,6 +97,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           price_cents: payload.price_cents,
           size: payload.size,
           quantity,
+          maxAvailable: payload.maxAvailable,
         },
       ];
     });
@@ -139,7 +150,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       updateQuantity,
       clearCart,
     }),
-    [items, totalItems, totalAmount, hydrated, addItem, removeItem, updateQuantity, clearCart]
+    [
+      items,
+      totalItems,
+      totalAmount,
+      hydrated,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+    ]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
