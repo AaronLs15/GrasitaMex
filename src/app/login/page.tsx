@@ -39,6 +39,7 @@ export default function LoginPage() {
   const [isRecoveryMode, setIsRecoveryMode] = useState(false)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [recoverySuccess, setRecoverySuccess] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -82,6 +83,9 @@ export default function LoginPage() {
 
     const destination = role === 'admin' ? '/admin' : '/customer'
     toast.success('Bienvenido', { description: 'Sesión iniciada correctamente' })
+
+    // Activate blocking loader for admin or all
+    setIsNavigating(true)
     router.replace(destination)
   }
 
@@ -130,7 +134,27 @@ export default function LoginPage() {
     recoveryForm.reset()
   }
 
+  if (isNavigating) {
+    return (
+      <div className="relative min-h-screen overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none -z-10">
+          <DarkVeil resolutionScale={1} />
+        </div>
+        <div className="relative grid min-h-screen place-items-center p-4">
+          <Card className="w-full max-w-sm bg-background/80 backdrop-blur shadow-xl border-muted/20 text-center p-8">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-lg font-medium">Iniciando sesión...</p>
+              <p className="text-sm text-muted-foreground">Te estamos redirigiendo.</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   if (registrationSuccess) {
+    // ... (existing registrationSuccess return)
     return (
       <div className="relative min-h-screen overflow-hidden">
         <div className="absolute inset-0 pointer-events-none -z-10">
@@ -170,6 +194,7 @@ export default function LoginPage() {
   }
 
   if (recoverySuccess) {
+    // ... (existing recoverySuccess return)
     return (
       <div className="relative min-h-screen overflow-hidden">
         <div className="absolute inset-0 pointer-events-none -z-10">
@@ -308,6 +333,9 @@ export default function LoginPage() {
                             {...field}
                           />
                         </FormControl>
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          Mínimo 6 caracteres.
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -322,8 +350,8 @@ export default function LoginPage() {
                       ¿Olvidaste tu contraseña?
                     </Button>
                   </div>
-                  <Button className="w-full" type="submit">
-                    Entrar
+                  <Button className="w-full" type="submit" disabled={loginForm.formState.isSubmitting || isNavigating}>
+                    {loginForm.formState.isSubmitting || isNavigating ? 'Iniciando sesión...' : 'Entrar'}
                   </Button>
                 </form>
               </Form>
