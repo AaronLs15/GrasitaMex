@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import DarkVeil from '@/components/DarkVeil'
 import Link from 'next/link'
 import { ArrowLeft, MailCheck, KeyRound } from 'lucide-react'
@@ -34,7 +34,6 @@ const recoverySchema = z.object({
 })
 
 export default function LoginPage() {
-  const { toast } = useToast()
   const router = useRouter()
   const [isRegisterMode, setIsRegisterMode] = useState(false)
   const [isRecoveryMode, setIsRecoveryMode] = useState(false)
@@ -64,7 +63,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+      toast.error('Error al iniciar sesión', { description: error.message })
       return
     }
 
@@ -82,7 +81,7 @@ export default function LoginPage() {
     }
 
     const destination = role === 'admin' ? '/admin' : '/customer'
-    toast({ title: 'Bienvenido', description: 'Sesión iniciada' })
+    toast.success('Bienvenido', { description: 'Sesión iniciada correctamente' })
     router.replace(destination)
   }
 
@@ -97,7 +96,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+      toast.error('Error en el registro', { description: error.message })
       return
     }
 
@@ -113,7 +112,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+      toast.error('Error al enviar correo', { description: error.message })
       return
     }
 
@@ -218,7 +217,7 @@ export default function LoginPage() {
 
       {/* Back Button */}
       <div className="absolute top-4 left-4 z-10">
-        <Button asChild variant="ghost" className="gap-2 bg-white hover:bg-background/50">
+        <Button asChild variant="ghost" className="gap-2 bg-black hover:bg-background/50 text-white">
           <Link href="/">
             <ArrowLeft className="w-4 h-4" />
             Volver al inicio
@@ -398,7 +397,7 @@ export default function LoginPage() {
                   variant="link"
                   type="button"
                   onClick={handleModeChange}
-                  className="text-sm text-muted-foreground hover:text-black/50"
+                  className="text-sm text-muted-foreground hover:text-white/50"
                 >
                   {isRegisterMode
                     ? '¿Ya tienes cuenta? Inicia sesión'

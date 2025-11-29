@@ -10,6 +10,8 @@ import {
     ResponsiveContainer,
     BarChart,
     Bar,
+    AreaChart,
+    Area,
 } from "recharts";
 import {
     Card,
@@ -26,6 +28,7 @@ type DataPoint = {
     views: number;
     orders: number;
     customers: number;
+    sales: number; // Added sales
 };
 
 interface DashboardChartsProps {
@@ -48,6 +51,14 @@ export default function DashboardCharts({
                 ? monthlyData
                 : yearlyData;
 
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat("es-MX", {
+            style: "currency",
+            currency: "MXN",
+            maximumFractionDigits: 0,
+        }).format(value);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -64,6 +75,52 @@ export default function DashboardCharts({
                     </TabsList>
                 </Tabs>
             </div>
+
+            {/* Main Sales Chart - Full Width */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Ventas Totales</CardTitle>
+                    <CardDescription>Ingresos brutos por periodo</CardDescription>
+                </CardHeader>
+                <CardContent className="pl-2">
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={data}>
+                                <defs>
+                                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis
+                                    dataKey="date"
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                />
+                                <YAxis
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `$${value}`}
+                                />
+                                <Tooltip
+                                    formatter={(value: number) => [formatCurrency(value), "Ventas"]}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="sales"
+                                    stroke="#10b981"
+                                    fillOpacity={1}
+                                    fill="url(#colorSales)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Card>

@@ -26,7 +26,8 @@ type Variant = {
 }
 
 const schema = z.object({
-  sku: z.string().min(1, 'Requerido'),
+  // sku ya no es requerido en el input, se genera auto
+  sku: z.string().optional(),
   size_label: z.string().min(1, 'Requerido'),
   qty: z.coerce.number().int().min(0),
   active: z.boolean().optional(),
@@ -69,7 +70,7 @@ export default function VariantsClient({
       if (editing) {
         const { error } = await supa.from('product_variants')
           .update({
-            sku: values.sku,
+            // No actualizamos SKU
             size_label: values.size_label,
             qty: values.qty,
             active: !!values.active,
@@ -78,30 +79,32 @@ export default function VariantsClient({
         if (error) throw error
         toast({ title: 'Variante actualizada' })
       } else {
+        // Generar SKU aleatorio si no existe (siempre, porque lo ocultamos)
+        const autoSku = crypto.randomUUID().split('-')[0].toUpperCase()
+
         const { error } = await supa.from('product_variants')
           .insert({
             product_id: productId,
-            sku: values.sku,
+            sku: autoSku, // Auto-generated
             size_label: values.size_label,
             qty: values.qty,
             active: !!values.active,
           })
-        if (error) throw error // si rompe por SKU único, vendrá aquí
+        if (error) throw error
         toast({ title: 'Variante creada' })
       }
       setOpen(false)
       startTransition(() => router.refresh())
     } catch (e: any) {
-      // errores típicos: unique_violation (SKU), check constraints
       const msg = /duplicate key value/.test(e.message)
-        ? 'SKU duplicado: ya existe una variante con ese SKU.'
+        ? 'Error de duplicado (SKU interno).'
         : e.message
       toast({ title: 'Error', description: msg, variant: 'destructive' })
     }
   }
 
   async function onDelete(v: Variant) {
-    if (!confirm(`¿Eliminar variante SKU ${v.sku}?`)) return
+    if (!confirm(`¿Eliminar variante ID ${v.id}?`)) return
     const supa = supabaseBrowser()
     try {
       const { error } = await supa.from('product_variants').delete().eq('id', v.id)
@@ -117,7 +120,7 @@ export default function VariantsClient({
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Variantes de {productTitle}</h1>
-        <p className="text-sm text-muted-foreground">Gestiona tallas/SKU/stock de este producto.</p>
+        <p className="text-sm text-muted-foreground">Gestiona tallas y stock de este producto.</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -129,7 +132,7 @@ export default function VariantsClient({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>SKU</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead>Talla</TableHead>
               <TableHead>Cantidad</TableHead>
               <TableHead>Activa</TableHead>
@@ -139,7 +142,7 @@ export default function VariantsClient({
           <TableBody>
             {initial.map(v => (
               <TableRow key={v.id}>
-                <TableCell className="font-medium">{v.sku}</TableCell>
+                <TableCell className="font-medium">{v.id}</TableCell>
                 <TableCell>{v.size_label}</TableCell>
                 <TableCell>{v.qty}</TableCell>
                 <TableCell>{v.active ? 'Sí' : 'No'}</TableCell>
@@ -167,19 +170,20 @@ export default function VariantsClient({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Editar variante' : 'Nueva variante'}</DialogTitle>
+            <DialogTitle>{editing ? `Editar variante #${editing.id}` : 'Nueva variante'}</DialogTitle>
           </DialogHeader>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormField control={form.control} name="sku" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>SKU</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                {/* SKU oculto / ID solo lectura */}
+                {editing && (
+                  <div className="space-y-2">
+                    <FormLabel>ID</FormLabel>
+                    <Input value={editing.id} disabled />
+                  </div>
+                )}
+
                 <FormField control={form.control} name="size_label" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Talla</FormLabel>

@@ -444,6 +444,7 @@ function ModelosContent() {
                         className="pt-1"
                         buttonVariant="default"
                         buttonSize="sm"
+                        buttonText="Agregar"
                       />
                       <Button
                         asChild
