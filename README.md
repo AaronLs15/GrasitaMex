@@ -138,7 +138,62 @@ src/
 - `customers`: Customer accounts and profiles
 - `addresses`: Customer shipping addresses
 
-## 🔧 Setup & Installation
+## � Mercado Pago Payment Integration
+
+One of the core technical achievements of this project is the **complete integration with Mercado Pago's payment API**, Latin America's leading payment platform. This implementation demonstrates advanced API integration skills and understanding of secure payment processing workflows.
+
+### Implementation Features
+
+**Payment Preference Creation**
+- Dynamic payment preference generation via Mercado Pago SDK
+- Custom back URLs for success, failure, and pending states
+- Real-time order creation with unique reference IDs
+- Automatic price calculation with coupon discount application
+- Multi-item cart support with product metadata
+
+**Webhook Integration**
+- Secure webhook endpoint for payment notifications (`/api/mercadopago/webhook`)
+- Signature verification for webhook authenticity
+- Real-time order status updates based on payment events
+- Automatic stock deduction on successful payments
+- Failed payment handling and order cancellation
+
+**Payment Flow**
+1. Customer completes checkout form with shipping details
+2. Backend creates order in database with 'pending' status
+3. Mercado Pago preference is generated with order details
+4. Customer redirected to Mercado Pago payment gateway
+5. Webhook receives payment notification upon completion
+6. Order status updated to 'paid', 'cancelled', or 'failed'
+7. Stock automatically adjusted for purchased items
+
+### Technical Implementation
+
+```typescript
+// Key integration points:
+- SDK: @mercadopago/sdk-react (frontend) + mercadopago (backend)
+- Authentication: Access token with environment variables
+- API Endpoints: 
+  - POST /api/checkout/preference - Create payment
+  - POST /api/mercadopago/webhook - Handle notifications
+- Security: Webhook signature validation, HTTPS enforcement
+- Error Handling: Comprehensive try-catch with fallback flows
+```
+
+### Supported Payment Methods
+- Credit/Debit Cards (Visa, Mastercard, American Express)
+- Bank transfers (SPEI)
+- Cash payments (OXXO, 7-Eleven)
+- Installment plans (3, 6, 9, 12 MSI)
+
+This integration showcases proficiency in:
+- **Third-party API integration** with proper authentication
+- **Webhook handling** and asynchronous processing
+- **Payment security** best practices
+- **Transaction state management** across distributed systems
+- **Error handling** in financial operations
+
+## �🔧 Setup & Installation
 
 ```bash
 # Clone the repository
