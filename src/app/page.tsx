@@ -101,6 +101,7 @@ function FeaturedProductCard({ p }: { p: Product }) {
           className="w-full"
           buttonVariant="default"
           buttonSize="sm"
+          buttonsContainerClassName="flex flex-col sm:flex-row gap-2"
         />
         <div className="flex flex-col items-stretch justify-between gap-2 text-xs sm:flex-row sm:items-center sm:text-sm">
           <Link
@@ -548,7 +549,7 @@ function Footer() {
       </div>
       <div className="bg-muted/40">
         <div className="flex items-center justify-between px-4 py-4 mx-auto text-xs max-w-7xl text-muted-foreground">
-          <span>
+          <span suppressHydrationWarning>
             © {new Date().getFullYear()} GrasitaMex. Todos los derechos
             reservados.
           </span>

@@ -32,6 +32,7 @@ type AddToCartControlProps = {
   selectPlaceholder?: string;
   buttonVariant?: ButtonVariant;
   buttonSize?: ButtonSize;
+  buttonsContainerClassName?: string;
 };
 
 export function AddToCartControl({
@@ -44,6 +45,7 @@ export function AddToCartControl({
   selectPlaceholder = "Selecciona talla",
   buttonVariant = "secondary",
   buttonSize = "sm",
+  buttonsContainerClassName = "flex gap-2",
 }: AddToCartControlProps) {
   const { addItem, items } = useCart();
   const { toast } = useToast();
@@ -143,7 +145,7 @@ export function AddToCartControl({
         </SelectContent>
       </Select>
       <p className="text-xs text-muted-foreground">{helperMessage}</p>
-      <div className="flex gap-2">
+      <div className={buttonsContainerClassName}>
         <Button
           size={buttonSize}
           variant={buttonVariant}

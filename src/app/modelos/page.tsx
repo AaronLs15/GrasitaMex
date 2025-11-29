@@ -38,7 +38,6 @@ function moneyFromCents(cents: number) {
 
 function ModelosContent() {
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get("category");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +47,13 @@ function ModelosContent() {
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [searchText, setSearchText] = useState("");
 
-  // Set initial category from URL
+  // Set initial category from URL (client-side only to avoid hydration mismatch)
   useEffect(() => {
+    const initialCategory = searchParams.get("category");
     if (initialCategory) {
       setSelectedCategories([initialCategory]);
     }
-  }, [initialCategory]);
+  }, [searchParams]);
 
   /* ---------- fetch a Supabase ---------- */
 
@@ -445,6 +445,7 @@ function ModelosContent() {
                         buttonVariant="default"
                         buttonSize="sm"
                         buttonText="Agregar"
+                        buttonsContainerClassName="flex flex-col sm:flex-row gap-2"
                       />
                       <Button
                         asChild
