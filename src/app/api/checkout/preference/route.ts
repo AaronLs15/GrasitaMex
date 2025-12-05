@@ -232,14 +232,34 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Crear preferencia de MercadoPago
-    const mpItems = fixedItems.map((item, idx) => ({
-      id: `${orderId}-${idx}`,
-      title: item.title,
-      description: `Talla: ${item.size}`,
-      quantity: item.quantity,
-      currency_id: 'MXN',
-      unit_price: centsToPesos(item.price_cents),
-    }));
+    // Distribuir el descuento entre los items para evitar precios negativos
+    let remainingDiscount = discountAmount;
+    const totalItemPrice = fixedItems.reduce((sum, item) => sum + (item.price_cents * item.quantity), 0);
+
+    const mpItems = fixedItems.map((item, idx) => {
+      // Calcular proporción del descuento para este item
+      let itemDiscount = 0;
+      if (totalItemPrice > 0 && remainingDiscount > 0) {
+        const itemTotal = item.price_cents * item.quantity;
+        const ratio = itemTotal / totalItemPrice;
+        itemDiscount = Math.round(discountAmount * ratio);
+      }
+
+      // Ajustar precio unitario
+      // Nota: MercadoPago requiere unit_price, así que dividimos el total descontado entre cantidad
+      const originalTotal = item.price_cents * item.quantity;
+      const discountedTotal = Math.max(0, originalTotal - itemDiscount);
+      const unitPrice = discountedTotal / item.quantity;
+
+      return {
+        id: `${orderId}-${idx}`,
+        title: item.title,
+        description: `Talla: ${item.size}`,
+        quantity: item.quantity,
+        currency_id: 'MXN',
+        unit_price: centsToPesos(Math.round(unitPrice * 100) / 100), // Redondear a 2 decimales
+      };
+    });
 
     // Agregar envío como item si es > 0
     if (shippingCost > 0) {
@@ -250,18 +270,6 @@ export async function POST(req: NextRequest) {
         quantity: 1,
         currency_id: 'MXN',
         unit_price: centsToPesos(shippingCost),
-      });
-    }
-
-    // Aplicar descuento como item negativo si existe
-    if (discountAmount > 0) {
-      mpItems.push({
-        id: `${orderId}-discount`,
-        title: `Descuento ${appliedCoupon?.code || ''}`,
-        description: 'Cupón de descuento aplicado',
-        quantity: 1,
-        currency_id: 'MXN',
-        unit_price: -centsToPesos(discountAmount),
       });
     }
 
@@ -284,6 +292,14 @@ export async function POST(req: NextRequest) {
         auto_return: 'approved', // Redirección automática al aprobarse
         notification_url: notificationUrl,
         statement_descriptor: 'GRASITA MEX',
+        payment_methods: {
+          excluded_payment_types: [
+            { id: 'ticket' },
+            { id: 'atm' },
+            { id: 'bank_transfer' }
+          ],
+          installments: 12 // Permitir hasta 12 meses
+        },
         payer: {
           name: shipping_address.full_name,
           email: user.email || 'guest@grasitamex.com', // Fallback seguro
