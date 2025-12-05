@@ -11,6 +11,7 @@ import {
 
 export type CartItem = {
   id: number;
+  variant_id?: number;
   title: string;
   price_cents: number;
   size: string;
@@ -85,6 +86,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           ...existing,
           quantity: newQuantity,
           maxAvailable: max,
+          variant_id: payload.variant_id ?? existing.variant_id, // Update variant_id if provided
         };
         return clone;
       }
@@ -93,6 +95,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         {
           id: payload.id,
+          variant_id: payload.variant_id,
           title: payload.title,
           price_cents: payload.price_cents,
           size: payload.size,

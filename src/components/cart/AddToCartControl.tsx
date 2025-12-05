@@ -18,6 +18,7 @@ type ButtonVariant = ComponentProps<typeof Button>["variant"];
 type ButtonSize = ComponentProps<typeof Button>["size"];
 
 export type SizeOption = {
+  id: number; // variant_id
   label: string;
   available: number;
 };
@@ -93,6 +94,7 @@ export function AddToCartControl({
 
     addItem({
       id: productId,
+      variant_id: selectedOption?.id, // Pass variant_id
       title,
       price_cents: priceCents,
       size: selectedSize,

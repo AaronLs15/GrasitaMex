@@ -76,7 +76,7 @@ export default function ProductDetailPage() {
           product_categories (
             category:categories (id, name, kind)
           ),
-          product_variants (size_label, qty, active)
+          product_variants (id, size_label, qty, active)
         `)
                 .eq("id", id)
                 .single();
@@ -94,19 +94,27 @@ export default function ProductDetailPage() {
 
             // Process variants -> sizeOptions
             const variants = (prodData.product_variants ?? []) as {
+                id: number;
                 size_label: string | null;
                 qty?: number | null;
                 active?: boolean | null;
             }[];
 
             const sizeMap = new Map<string, number>();
+            const variantIdMap = new Map<string, number>();
+
             for (const v of variants) {
                 const label = v.size_label?.trim();
                 if (!label) continue;
                 if (v.active === false) continue;
                 const qty = v.qty ?? 0;
                 if (qty <= 0) continue;
+
                 sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
+                // Store the first variant ID found for this label
+                if (!variantIdMap.has(label)) {
+                    variantIdMap.set(label, v.id);
+                }
             }
 
             // Sort sizes numerically if possible, otherwise alphabetically
@@ -118,6 +126,7 @@ export default function ProductDetailPage() {
             });
 
             const sizeOptions = sortedLabels.map(label => ({
+                id: variantIdMap.get(label)!,
                 label,
                 available: sizeMap.get(label) ?? 0
             }));

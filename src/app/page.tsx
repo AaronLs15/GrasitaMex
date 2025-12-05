@@ -171,7 +171,7 @@ export default function Home() {
             condition,
             created_at,
             product_images!left (url, position),
-            product_variants!inner (size_label, qty, active)
+            product_variants!inner (id, size_label, qty, active)
           `
         )
         .eq("published", true)
@@ -193,21 +193,33 @@ export default function Home() {
             (a, b) => (a?.position ?? 0) - (b?.position ?? 0)
           )[0];
           const variants = (row.product_variants ?? []) as {
+            id: number;
             size_label: string | null;
             qty?: number | null;
             active?: boolean | null;
           }[];
           const sizeMap = new Map<string, number>();
+          const variantIdMap = new Map<string, number>();
+
           for (const variant of variants) {
             const label = variant.size_label?.trim();
             if (!label) continue;
             if (variant.active === false) continue;
             const qty = variant.qty ?? 0;
             if (qty <= 0) continue;
+
             sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
+            // Store the first variant ID found for this label
+            if (!variantIdMap.has(label)) {
+              variantIdMap.set(label, variant.id);
+            }
           }
           const sizeOptions = Array.from(sizeMap.entries()).map(
-            ([label, available]) => ({ label, available })
+            ([label, available]) => ({
+              id: variantIdMap.get(label)!,
+              label,
+              available
+            })
           );
           return {
             id: row.id,

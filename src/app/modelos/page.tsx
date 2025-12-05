@@ -82,6 +82,7 @@ function ModelosContent() {
             )
           ),
           product_variants!inner (
+            id,
             size_label,
             qty,
             active
@@ -127,19 +128,27 @@ function ModelosContent() {
 
           // Variantes: usamos la cantidad disponible por talla
           const variants = (row.product_variants ?? []) as {
+            id: number;
             size_label: string | null;
             qty?: number | null;
             active?: boolean | null;
           }[];
 
           const sizeMap = new Map<string, number>();
+          const variantIdMap = new Map<string, number>();
+
           for (const variant of variants) {
             const label = variant.size_label?.trim();
             if (!label) continue;
             if (variant.active === false) continue;
             const qty = variant.qty ?? 0;
             if (qty <= 0) continue;
+
             sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
+            // Store the first variant ID found for this label
+            if (!variantIdMap.has(label)) {
+              variantIdMap.set(label, variant.id);
+            }
           }
 
           const labelPool =
@@ -162,7 +171,11 @@ function ModelosContent() {
           availableSizesCm.sort((a, b) => a - b);
 
           const sizeOptions = Array.from(sizeMap.entries()).map(
-            ([label, available]) => ({ label, available })
+            ([label, available]) => ({
+              id: variantIdMap.get(label)!,
+              label,
+              available
+            })
           );
 
           return {
