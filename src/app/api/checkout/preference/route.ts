@@ -286,14 +286,14 @@ export async function POST(req: NextRequest) {
         statement_descriptor: 'GRASITA MEX',
         payer: {
           name: shipping_address.full_name,
-          email: user.email!, // Usar el email real del usuario autenticado
+          email: user.email || 'guest@grasitamex.com', // Fallback seguro
           phone: {
             area_code: '',
-            number: shipping_address.phone,
+            number: shipping_address.phone.replace(/\D/g, ''), // Solo dígitos
           },
           address: {
             street_name: shipping_address.line1,
-            street_number: '', // MP a veces requiere número separado, pero si va en street_name suele funcionar
+            street_number: 'S/N', // MP requiere este campo a veces, S/N es seguro
             zip_code: shipping_address.zip,
           },
         },
