@@ -249,7 +249,8 @@ export async function POST(req: NextRequest) {
       // Nota: MercadoPago requiere unit_price, así que dividimos el total descontado entre cantidad
       const originalTotal = item.price_cents * item.quantity;
       const discountedTotal = Math.max(0, originalTotal - itemDiscount);
-      const unitPrice = discountedTotal / item.quantity;
+      // IMPORTANTE: Redondear a centavos enteros para evitar decimales extraños en pesos
+      const unitPriceCents = Math.round(discountedTotal / item.quantity);
 
       return {
         id: `${orderId}-${idx}`,
@@ -257,7 +258,7 @@ export async function POST(req: NextRequest) {
         description: `Talla: ${item.size}`,
         quantity: item.quantity,
         currency_id: 'MXN',
-        unit_price: centsToPesos(Math.round(unitPrice * 100) / 100), // Redondear a 2 decimales
+        unit_price: centsToPesos(unitPriceCents),
       };
     });
 
@@ -283,7 +284,7 @@ export async function POST(req: NextRequest) {
     const preferenceData = await preferenceClient.create({
       body: {
         items: mpItems,
-        external_reference: orderId,
+        external_reference: orderId.toString(),
         back_urls: {
           success: backUrls.success,
           failure: backUrls.failure,
@@ -298,15 +299,15 @@ export async function POST(req: NextRequest) {
             { id: 'atm' },
             { id: 'bank_transfer' }
           ],
-          installments: 12 // Permitir hasta 12 meses
+          // installments: 12 // Removido para evitar conflictos con montos bajos
         },
         payer: {
           name: shipping_address.full_name,
           email: user.email || 'guest@grasitamex.com', // Fallback seguro
-          phone: {
+          phone: shipping_address.phone && shipping_address.phone.replace(/\D/g, '').length > 0 ? {
             area_code: '',
             number: shipping_address.phone.replace(/\D/g, ''), // Solo dígitos
-          },
+          } : undefined,
           address: {
             street_name: shipping_address.line1,
             street_number: 'S/N', // MP requiere este campo a veces, S/N es seguro
