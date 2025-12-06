@@ -54,8 +54,8 @@ function SuccessContent() {
             order_items(*),
             addresses!orders_shipping_address_id_fkey(*)
           `
-                    )
-                    .eq("status", "paid");
+                    );
+                // .eq("status", "paid"); // Eliminamos filtro para manejar otros estados
 
                 // Intentar primero con external_reference
                 let { data: order } = await query.eq("id", externalRef).single();
@@ -140,19 +140,24 @@ function SuccessContent() {
             <HeadNavBar />
             <main className="px-4 py-16 mx-auto max-w-4xl">
                 <div className="space-y-8">
-                    {/* Success Message */}
-                    <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+                    {/* Status Message */}
+                    <Card className={`border-primary/20 rounded-2xl ${order.status === 'paid' ? 'bg-primary/5' : 'bg-yellow-500/10'}`}>
                         <CardContent className="flex flex-col items-center gap-4 py-8 text-center sm:flex-row sm:text-left">
-                            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
-                                <CheckCircle2 className="w-8 h-8 text-primary" />
+                            <div className={`flex items-center justify-center w-16 h-16 rounded-full ${order.status === 'paid' ? 'bg-primary/10' : 'bg-yellow-500/20'}`}>
+                                {order.status === 'paid' ? (
+                                    <CheckCircle2 className="w-8 h-8 text-primary" />
+                                ) : (
+                                    <Loader2 className="w-8 h-8 text-yellow-600 animate-spin" />
+                                )}
                             </div>
                             <div className="flex-1">
-                                <h1 className="text-2xl font-bold text-primary">
-                                    ¡Pago confirmado!
+                                <h1 className={`text-2xl font-bold ${order.status === 'paid' ? 'text-primary' : 'text-yellow-700'}`}>
+                                    {order.status === 'paid' ? '¡Pago confirmado!' : 'Pago en proceso'}
                                 </h1>
                                 <p className="mt-1 text-muted-foreground">
-                                    Tu pedido ha sido recibido y está siendo procesado. Recibirás
-                                    un correo de confirmación en breve.
+                                    {order.status === 'paid'
+                                        ? 'Tu pedido ha sido recibido y está siendo procesado. Recibirás un correo de confirmación en breve.'
+                                        : 'Estamos verificando tu pago. Esto puede tomar unos minutos. Te notificaremos cuando se confirme.'}
                                 </p>
                             </div>
                         </CardContent>

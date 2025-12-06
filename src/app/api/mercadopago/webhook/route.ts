@@ -23,6 +23,11 @@ async function verifySignature(req: NextRequest, raw: string): Promise<boolean> 
     return false;
   }
 
+  if (secret.startsWith('http')) {
+    console.error('[Webhook] CRITICAL: MP_WEBHOOK_SECRET appears to be a URL. It must be the alphanumeric secret key from Mercado Pago Dashboard.');
+    return false;
+  }
+
   try {
     // MercadoPago envía: ts=timestamp,v1=hash
     const parts = header.split(',');
