@@ -99,6 +99,11 @@ export function getBackUrls() {
     // En el servidor no podemos usar NEXT_PUBLIC_, usamos la variable normal
     let baseUrl = process.env.BASE_URL || process.env.NEXT_PUBLIC_LINK_PROYECTO || 'http://localhost:3000';
 
+    // Asegurar que tenga protocolo
+    if (!baseUrl.startsWith('http')) {
+        baseUrl = `https://${baseUrl}`;
+    }
+
     // Remover trailing slash si existe
     baseUrl = baseUrl.replace(/\/$/, '');
 
@@ -114,6 +119,11 @@ export function getBackUrls() {
  */
 export function getWebhookUrl() {
     let baseUrl = process.env.BASE_URL || process.env.NEXT_PUBLIC_LINK_PROYECTO || 'http://localhost:3000';
+
+    // Asegurar que tenga protocolo
+    if (!baseUrl.startsWith('http')) {
+        baseUrl = `https://${baseUrl}`;
+    }
 
     // Remover trailing slash si existe
     baseUrl = baseUrl.replace(/\/$/, '');
