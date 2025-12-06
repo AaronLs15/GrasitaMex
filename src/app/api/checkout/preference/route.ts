@@ -291,6 +291,7 @@ export async function POST(req: NextRequest) {
           pending: backUrls.pending,
         },
         auto_return: 'approved', // Redirección automática al aprobarse
+        binary_mode: true, // Forzar pagos instantáneos (tarjetas/saldo) y evitar pendientes
         notification_url: notificationUrl,
         statement_descriptor: 'GRASITA MEX',
         payment_methods: {
@@ -304,15 +305,8 @@ export async function POST(req: NextRequest) {
         payer: {
           name: shipping_address.full_name,
           email: user.email || 'guest@grasitamex.com', // Fallback seguro
-          phone: shipping_address.phone && shipping_address.phone.replace(/\D/g, '').length > 0 ? {
-            area_code: '',
-            number: shipping_address.phone.replace(/\D/g, ''), // Solo dígitos
-          } : undefined,
-          address: {
-            street_name: shipping_address.line1,
-            street_number: 'S/N', // MP requiere este campo a veces, S/N es seguro
-            zip_code: shipping_address.zip,
-          },
+          // Simplificamos el payer para evitar errores de validación de MP
+          // MP usará la info guardada del usuario o pedirá lo necesario
         },
       },
     });
