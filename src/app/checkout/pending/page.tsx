@@ -18,9 +18,22 @@ import { Clock, AlertCircle, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useCart } from "@/context/cart-context";
 
+type OrderItem = {
+    line_total_cents: number;
+};
+
+type PendingOrder = {
+    id: string;
+    status: string;
+    total_cents: number;
+    created_at: string;
+    shipping_address_id?: number | null;
+    order_items?: OrderItem[];
+};
+
 interface OrderData {
-    order: any;
-    items: any[];
+    order: PendingOrder;
+    items: OrderItem[];
 }
 
 function PendingContent() {
@@ -46,7 +59,7 @@ function PendingContent() {
             try {
                 const supa = supabaseBrowser();
 
-                let query = supa
+                const query = supa
                     .from("orders")
                     .select(`*, order_items(*)`)
                     .eq("status", "pending_payment");

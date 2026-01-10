@@ -75,7 +75,7 @@ export default async function ProductsPage() {
               {(!prods || prods.length === 0) && (
                 <tr>
                   <td className="p-6 text-center text-muted-foreground" colSpan={8}>
-                    No hay productos. Usa "Nuevo producto".
+                    No hay productos. Usa &quot;Nuevo producto&quot;.
                   </td>
                 </tr>
               )}
@@ -140,8 +140,8 @@ export default async function ProductsPage() {
 
         {(!prods || prods.length === 0) && (
           <Card className="p-8">
-            <p className="text-center text-muted-foreground">
-              No hay productos. Usa "Nuevo producto".
+              <p className="text-center text-muted-foreground">
+              No hay productos. Usa &quot;Nuevo producto&quot;.
             </p>
           </Card>
         )}

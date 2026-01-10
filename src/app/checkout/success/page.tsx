@@ -18,10 +18,35 @@ import { CheckCircle2, Package, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useCart } from "@/context/cart-context";
 
+type OrderItem = {
+    line_total_cents: number;
+};
+
+type OrderAddress = {
+    full_name?: string | null;
+    phone?: string | null;
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    reference?: string | null;
+};
+
+type SuccessOrder = {
+    id: string;
+    external_reference?: string | null;
+    status: string;
+    total_cents: number;
+    created_at: string;
+    shipping_address_id?: number | null;
+    order_items?: OrderItem[];
+};
+
 interface OrderData {
-    order: any;
-    items: any[];
-    address: any;
+    order: SuccessOrder;
+    items: OrderItem[];
+    address: OrderAddress | null;
 }
 
 function SuccessContent() {
@@ -49,7 +74,7 @@ function SuccessContent() {
                 const supa = supabaseBrowser();
 
                 // Buscar orden por external_reference o por preference_id
-                let query = supa
+                const query = supa
                     .from("orders")
                     .select(
                         `

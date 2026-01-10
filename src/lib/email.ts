@@ -19,13 +19,18 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-type OrderItem = {
-    name: string;
-    quantity: number;
-    price: number;
+type OrderLineItem = {
+    title?: string;
+    name?: string;
+    quantity?: number;
+    line_total_cents?: number;
+    line_total?: number;
+    unit_price_cents?: number;
+    price_cents?: number;
+    price?: number;
 };
 
-type Order = {
+export type Order = {
     id: string;
     external_reference?: string;
     total_cents: number;
@@ -141,7 +146,7 @@ export async function testemail(to: string) {
     });
 }
 
-export async function sendOrderConfirmationEmail(order: Order, items: any[]) {
+export async function sendOrderConfirmationEmail(order: Order, items: OrderLineItem[]) {
     if (!order.profiles?.email) return;
 
     const orderId = order.external_reference || order.id.slice(0, 8);
@@ -154,7 +159,7 @@ export async function sendOrderConfirmationEmail(order: Order, items: any[]) {
         return Number.isFinite(num) ? num : 0;
     };
 
-    const getItemLineTotalCents = (item: any) => {
+    const getItemLineTotalCents = (item: OrderLineItem) => {
         if (item?.line_total_cents != null) return toNumber(item.line_total_cents);
         if (item?.line_total != null) return toNumber(item.line_total);
 
@@ -243,7 +248,7 @@ export async function sendOrderConfirmationEmail(order: Order, items: any[]) {
     });
 }
 
-export async function sendOrderNotificationEmail(order: Order, items: any[]) {
+export async function sendOrderNotificationEmail(order: Order, items: OrderLineItem[]) {
     const salesEmail = 'Joshuaguz04@gmail.com';
     const orderId = order.external_reference || order.id.slice(0, 8);
     const isPickup = order.delivery_method
@@ -255,7 +260,7 @@ export async function sendOrderNotificationEmail(order: Order, items: any[]) {
         return Number.isFinite(num) ? num : 0;
     };
 
-    const getItemLineTotalCents = (item: any) => {
+    const getItemLineTotalCents = (item: OrderLineItem) => {
         if (item?.line_total_cents != null) return toNumber(item.line_total_cents);
         if (item?.line_total != null) return toNumber(item.line_total);
 

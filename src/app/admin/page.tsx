@@ -3,13 +3,39 @@ import DashboardCharts from "./dashboard-charts";
 import RecentSales from "./recent-sales";
 import OrderManager from "./order-manager";
 
+type OrderRow = {
+  id: string;
+  created_at: string;
+  total_cents: number | null;
+  status: string;
+};
+
+type OrderItemRow = {
+  order_id: string;
+  product_id: number;
+  quantity: number | null;
+  unit_price_cents: number | null;
+  initial_price_cents: number | null;
+};
+
+type ProductCategoryRow = {
+  product_id: number;
+  category_id: number;
+};
+
+type CategoryRow = {
+  id: number;
+  name: string;
+  kind: string;
+};
+
 export default async function AdminHome() {
   const supa = await supabaseServer();
 
   // Fetch data in parallel
   const [
     { count: viewsCount, data: views },
-    { count: ordersCount, data: orders },
+    { count: ordersCount, data: ordersRaw },
     { count: customersCount, data: customers },
     { data: recentOrders },
     { data: pendingOrders },
@@ -38,8 +64,9 @@ export default async function AdminHome() {
       .limit(10),
   ]);
 
-  const orderIds = (orders ?? []).map((order) => order.id).filter(Boolean);
-  let orderItems: any[] = [];
+  const orders = (ordersRaw ?? []) as OrderRow[];
+  const orderIds = orders.map((order) => order.id).filter(Boolean);
+  let orderItems: OrderItemRow[] = [];
 
   if (orderIds.length > 0) {
     const { data: items } = await supa
@@ -47,14 +74,14 @@ export default async function AdminHome() {
       .select("order_id, product_id, quantity, unit_price_cents, initial_price_cents")
       .in("order_id", orderIds);
 
-    orderItems = items ?? [];
+    orderItems = (items ?? []) as OrderItemRow[];
   }
 
   const productIds = Array.from(
     new Set(orderItems.map((item) => item.product_id).filter(Boolean))
   );
 
-  let productCategoryRows: any[] = [];
+  let productCategoryRows: ProductCategoryRow[] = [];
   let categoriesById = new Map<number, { name: string; kind: string }>();
 
   if (productIds.length > 0) {
@@ -63,7 +90,7 @@ export default async function AdminHome() {
       .select("product_id, category_id")
       .in("product_id", productIds);
 
-    productCategoryRows = categoryRows ?? [];
+    productCategoryRows = (categoryRows ?? []) as ProductCategoryRow[];
 
     const categoryIds = Array.from(
       new Set(productCategoryRows.map((row) => row.category_id).filter(Boolean))
@@ -76,7 +103,7 @@ export default async function AdminHome() {
         .in("id", categoryIds);
 
       categoriesById = new Map(
-        (categoriesData ?? []).map((cat) => [cat.id, { name: cat.name, kind: cat.kind }])
+        ((categoriesData ?? []) as CategoryRow[]).map((cat) => [cat.id, { name: cat.name, kind: cat.kind }])
       );
     }
   }
@@ -88,7 +115,7 @@ export default async function AdminHome() {
   // Calculate Delivered Orders Count
   const deliveredCount = orders?.filter(o => o.status === 'delivered').length || 0;
 
-  const orderItemsByOrderId = new Map<string, any[]>();
+  const orderItemsByOrderId = new Map<string, OrderItemRow[]>();
   const orderGrossEarningsCents = new Map<string, number>();
   const orderItemTotalsCents = new Map<string, number>();
 

@@ -13,8 +13,38 @@ import { formatMoney } from "@/lib/mercadopago";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+type OrderItem = {
+    id: string | number;
+    title: string;
+    size_label?: string | null;
+    quantity: number;
+    line_total_cents: number;
+    unit_price_cents: number;
+};
+
+type CustomerOrder = {
+    id: string;
+    external_reference?: string | null;
+    status: string;
+    created_at: string;
+    total_cents: number;
+    discount_amount_cents?: number | null;
+    coupon_code?: string | null;
+    delivery_method?: 'shipment' | 'pickup';
+    addresses?: {
+        full_name?: string | null;
+        line1?: string | null;
+        line2?: string | null;
+        city?: string | null;
+        state?: string | null;
+        zip?: string | null;
+        phone?: string | null;
+    } | null;
+    order_items?: OrderItem[];
+};
+
 interface CustomerOrderDetailsProps {
-    order: any;
+    order: CustomerOrder | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
@@ -92,7 +122,7 @@ export function CustomerOrderDetails({
                     <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-3">Productos ({items.length})</h3>
                         <div className="space-y-3">
-                            {items.map((item: any) => (
+                            {items.map((item) => (
                                 <div key={item.id} className="flex justify-between text-sm">
                                     <div className="flex-1">
                                         <p className="font-medium">{item.title}</p>

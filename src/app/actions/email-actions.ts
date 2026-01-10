@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js';
-import { sendOrderPickupReadyEmail, sendOrderShippedEmail, sendOrderStatusEmail } from '@/lib/email';
+import { sendOrderPickupReadyEmail, sendOrderShippedEmail, sendOrderStatusEmail, type Order } from '@/lib/email';
 
 const supa = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,23 +22,24 @@ export async function notifyOrderStatus(
 
         if (error || !order) throw new Error('Order not found');
 
-        const normalizedOrder = {
-            ...order,
+        const normalizedOrder: Order = {
+            ...(order as Order),
             profiles: Array.isArray(order.profiles) ? order.profiles[0] : order.profiles,
         };
 
         if (status === 'shipped') {
             if (order.delivery_method === 'pickup') {
-                await sendOrderPickupReadyEmail(normalizedOrder as any);
+                await sendOrderPickupReadyEmail(normalizedOrder);
             } else {
-                await sendOrderShippedEmail(normalizedOrder as any, meta?.trackingNumber, meta?.sender);
+                await sendOrderShippedEmail(normalizedOrder, meta?.trackingNumber, meta?.sender);
             }
         } else {
-            await sendOrderStatusEmail(normalizedOrder as any, status);
+            await sendOrderStatusEmail(normalizedOrder, status);
         }
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error sending status email:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: message };
     }
 }

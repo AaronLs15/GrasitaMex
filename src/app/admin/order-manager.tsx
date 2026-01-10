@@ -5,7 +5,7 @@ import { supabaseBrowser } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Package, Truck, CheckCircle, Loader2 } from 'lucide-react'
+import { Package, Truck, CheckCircle, Loader2, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { notifyOrderStatus } from '@/app/actions/email-actions'
 import {
@@ -36,7 +36,7 @@ type Order = {
     }
 }
 
-const statusMap: Record<string, { label: string; color: string; next: string; action: string; icon: any }> = {
+const statusMap: Record<string, { label: string; color: string; next: string; action: string; icon: LucideIcon }> = {
     paid: {
         label: 'Pagado',
         color: 'bg-green-100 text-green-800',
@@ -60,7 +60,7 @@ const statusMap: Record<string, { label: string; color: string; next: string; ac
     },
 }
 
-export default function OrderManager({ initialOrders }: { initialOrders: any[] }) {
+export default function OrderManager({ initialOrders }: { initialOrders: Order[] }) {
     const [orders, setOrders] = useState<Order[]>(initialOrders)
     const [loadingId, setLoadingId] = useState<string | null>(null)
     const [shippingDialogOpen, setShippingDialogOpen] = useState(false)
@@ -88,7 +88,7 @@ export default function OrderManager({ initialOrders }: { initialOrders: any[] }
                         .order('created_at', { ascending: true })
                         .limit(10)
 
-                    if (data) setOrders(data)
+                    if (data) setOrders(data as Order[])
                 }
             )
             .subscribe()
@@ -149,8 +149,9 @@ export default function OrderManager({ initialOrders }: { initialOrders: any[] }
                 setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o))
             }
 
-        } catch (e: any) {
-            toast({ title: 'Error', description: e.message, variant: 'destructive' })
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            toast({ title: 'Error', description: message, variant: 'destructive' })
         } finally {
             setLoadingId(null)
         }
@@ -238,7 +239,14 @@ export default function OrderManager({ initialOrders }: { initialOrders: any[] }
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label>Paqueteria</Label>
-                        <Select value={shippingSender} onValueChange={(value) => setShippingSender(value as any)}>
+                        <Select
+                            value={shippingSender}
+                            onValueChange={(value) => {
+                                if (value === 'Estafeta' || value === 'DHL' || value === 'Fedex') {
+                                    setShippingSender(value);
+                                }
+                            }}
+                        >
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>

@@ -73,7 +73,11 @@ export default function DashboardCharts({
                 <h2 className="text-2xl font-bold tracking-tight">Resumen</h2>
                 <Tabs
                     value={period}
-                    onValueChange={(v) => setPeriod(v as any)}
+                    onValueChange={(v) => {
+                        if (v === "week" || v === "month" || v === "year") {
+                            setPeriod(v);
+                        }
+                    }}
                     className="w-[400px]"
                 >
                     <TabsList>

@@ -269,13 +269,12 @@ export async function POST(req: NextRequest) {
 
     // 7. Crear preferencia de MercadoPago
     // Distribuir el descuento entre los items para evitar precios negativos
-    let remainingDiscount = discountAmount;
     const totalItemPrice = fixedItems.reduce((sum, item) => sum + (item.price_cents * item.quantity), 0);
 
     const mpItems = fixedItems.map((item, idx) => {
       // Calcular proporción del descuento para este item
       let itemDiscount = 0;
-      if (totalItemPrice > 0 && remainingDiscount > 0) {
+      if (totalItemPrice > 0) {
         const itemTotal = item.price_cents * item.quantity;
         const ratio = itemTotal / totalItemPrice;
         itemDiscount = Math.round(discountAmount * ratio);

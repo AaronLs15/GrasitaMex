@@ -10,15 +10,24 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CustomerOrderDetails } from "./customer-order-details";
 
+type CustomerOrderListItem = {
+    id: string;
+    external_reference?: string | null;
+    status: string;
+    created_at: string;
+    total_cents: number;
+    delivery_method?: 'shipment' | 'pickup';
+};
+
 interface OrdersListProps {
-    orders: any[];
+    orders: CustomerOrderListItem[];
 }
 
 export default function OrdersList({ orders }: OrdersListProps) {
-    const [selectedOrder, setSelectedOrder] = useState<any>(null);
+    const [selectedOrder, setSelectedOrder] = useState<CustomerOrderListItem | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    const openDetails = (order: any) => {
+    const openDetails = (order: CustomerOrderListItem) => {
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };

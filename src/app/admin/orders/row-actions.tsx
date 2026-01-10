@@ -39,7 +39,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface RowActionsProps {
-    order: any;
+    order: {
+        id: string;
+        status: string;
+        delivery_method?: 'shipment' | 'pickup';
+    };
 }
 
 const ORDER_STATUSES = [
@@ -96,9 +100,10 @@ export default function RowActions({ order }: RowActionsProps) {
                 });
             }
             router.refresh();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
             console.error('Error updating status:', error);
-            toast.error('Error al actualizar estatus');
+            toast.error(message);
         } finally {
             setIsUpdating(false);
         }
@@ -131,9 +136,10 @@ export default function RowActions({ order }: RowActionsProps) {
                 if (!res.success) console.error('Error sending status email:', res.error);
             });
             router.refresh();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
             console.error('Error updating status:', error);
-            toast.error('Error al actualizar estatus');
+            toast.error(message);
         } finally {
             setIsUpdating(false);
         }
@@ -187,7 +193,14 @@ export default function RowActions({ order }: RowActionsProps) {
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label>Paqueteria</Label>
-                            <Select value={shippingSender} onValueChange={(value) => setShippingSender(value as any)}>
+                            <Select
+                                value={shippingSender}
+                                onValueChange={(value) => {
+                                    if (value === 'Estafeta' || value === 'DHL' || value === 'Fedex') {
+                                        setShippingSender(value);
+                                    }
+                                }}
+                            >
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
