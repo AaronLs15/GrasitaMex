@@ -28,6 +28,7 @@ export function CustomerOrderDetails({
 
     const shippingAddress = order.addresses;
     const items = order.order_items || [];
+    const isPickup = order.delivery_method === 'pickup';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -56,9 +57,20 @@ export function CustomerOrderDetails({
                 <div className="space-y-6">
                     {/* Dirección de Envío */}
                     <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Dirección de Envío</h3>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                            {isPickup ? 'Pick up' : 'Dirección de Envío'}
+                        </h3>
                         <div className="bg-muted/40 p-3 rounded-lg text-sm space-y-1">
-                            {shippingAddress ? (
+                            {isPickup ? (
+                                <>
+                                    <p className="font-medium">Recoge tu par en:</p>
+                                    <p>Calle Plazoleta B 156, Colonia San Andres</p>
+                                    <p>CP 44730, Guadalajara, Jalisco.</p>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        Presenta tu # de orden o el correo de confirmacion del pedido.
+                                    </p>
+                                </>
+                            ) : shippingAddress ? (
                                 <>
                                     <p className="font-medium">{shippingAddress.full_name}</p>
                                     <p>{shippingAddress.line1}</p>

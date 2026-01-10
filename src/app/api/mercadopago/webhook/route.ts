@@ -8,12 +8,13 @@ import {
   mapPaymentStatusToOrderStatus,
   type PaymentStatus,
 } from '@/lib/mercadopago';
+import { sendOrderConfirmationEmail, sendOrderNotificationEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Verifica la firma del webhook de MercadoPago
- */
+
+// Verifica la firma del webhook de MercadoPago
+
 async function verifySignature(req: NextRequest, raw: string, payload: any): Promise<boolean> {
   const header = req.headers.get('x-signature');
   const requestId = req.headers.get('x-request-id');
@@ -259,6 +260,27 @@ export async function POST(req: NextRequest) {
         if (couponError) {
           console.log('[Webhook] RPC not found, using manual update');
           // Nota: esto es un fallback, idealmente usa el RPC
+        }
+      }
+
+      // 5. Send Email Confirmation if Approved
+      if (payment.status === 'approved' && updatedOrder) {
+        // Fetch full order details including items and profile
+        const { data: fullOrder } = await supa
+          .from('orders')
+          .select('*, profiles:user_id(*), order_items(*), addresses:shipping_address_id(*)')
+          .eq('id', updatedOrder.id)
+          .single();
+
+        if (fullOrder && fullOrder.profiles?.email) {
+          console.log('[Webhook] Sending confirmation email to:', fullOrder.profiles.email);
+          try {
+            await sendOrderConfirmationEmail(fullOrder, fullOrder.order_items || []);
+            await sendOrderNotificationEmail(fullOrder, fullOrder.order_items || []);
+            console.log('[Webhook] Email sent successfully');
+          } catch (emailError) {
+            console.error('[Webhook] Error sending email:', emailError);
+          }
         }
       }
     }

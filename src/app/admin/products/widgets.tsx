@@ -48,6 +48,7 @@ type Product = {
   condition: "new" | "used";
   currency: string;
   price_cents: number;
+  initialprice_cents: number;
   published: boolean;
 };
 
@@ -67,6 +68,7 @@ const schema = z.object({
   condition: z.enum(["new", "used"]),
   currency: z.string().length(3, "3 letras, p. ej. MXN"),
   price_value: z.coerce.number().min(0, ">= 0"),
+  initial_price_value: z.coerce.number().min(0, ">= 0"),
   published: z.boolean().optional(),
   images: z.any().optional(),
 });
@@ -107,6 +109,7 @@ export default function ProductsClient({
       condition: "new",
       currency: "MXN",
       price_value: 0,
+      initial_price_value: 0,
       published: false,
     },
   });
@@ -149,6 +152,7 @@ export default function ProductsClient({
 
     try {
       const price_cents = Math.round(values.price_value * 100);
+      const initialprice_cents = Math.round(values.initial_price_value * 100);
       const payload = {
         title: values.title,
         slug: values.slug,
@@ -158,6 +162,7 @@ export default function ProductsClient({
         condition: values.condition,
         currency: values.currency.toUpperCase(),
         price_cents,
+        initialprice_cents,
         published: !!values.published,
       };
 
@@ -369,6 +374,25 @@ export default function ProductsClient({
                           min="0"
                           {...field}
                           placeholder="1999.99"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="initial_price_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Precio de compra</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          {...field}
+                          placeholder="1200.00"
                         />
                       </FormControl>
                       <FormMessage />

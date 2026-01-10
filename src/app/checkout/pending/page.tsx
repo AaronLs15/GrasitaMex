@@ -1,7 +1,7 @@
 // app/checkout/pending/page.tsx
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import HeadNavBar from "@/components/HeadNavBar";
@@ -16,6 +16,7 @@ import {
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { Clock, AlertCircle, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useCart } from "@/context/cart-context";
 
 interface OrderData {
     order: any;
@@ -27,6 +28,8 @@ function PendingContent() {
     const [orderData, setOrderData] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { clearCart } = useCart();
+    const clearedRef = useRef(false);
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -76,6 +79,14 @@ function PendingContent() {
         fetchOrder();
     }, [searchParams]);
 
+    useEffect(() => {
+        if (!orderData || clearedRef.current) return;
+        if (orderData.order?.status === "paid") {
+            clearCart();
+            clearedRef.current = true;
+        }
+    }, [orderData, clearCart]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-background text-foreground">
@@ -118,9 +129,10 @@ function PendingContent() {
     }
 
     const { order, items } = orderData;
+    const isPickup = !order.shipping_address_id;
 
     const subtotal = items.reduce((sum, item) => sum + item.line_total_cents, 0);
-    const shippingCost = subtotal >= 200000 ? 0 : 1500;
+    const shippingCost = isPickup ? 0 : subtotal >= 200000 ? 0 : 1500;
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -148,6 +160,26 @@ function PendingContent() {
                     {/* Info Cards */}
                     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
                         <div className="space-y-6">
+                            {isPickup && (
+                                <Card className="rounded-2xl">
+                                    <CardHeader>
+                                        <CardTitle>Pick up</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2 text-sm">
+                                        <p className="font-semibold">
+                                            Recoge tu par en:
+                                        </p>
+                                        <p className="text-muted-foreground">
+                                            Calle Plazoleta B 156, Colonia San Andres,
+                                            CP 44730, Guadalajara, Jalisco.
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Presenta tu # de orden o el correo de confirmacion
+                                            del pedido.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
                             <Card className="rounded-2xl">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
@@ -199,21 +231,21 @@ function PendingContent() {
                                         <p>
                                             <span className="font-medium">Email:</span>{" "}
                                             <a
-                                                href="mailto:soporte@grasitamex.com"
+                                                href="mailto:ventas@grasitamex.com"
                                                 className="text-primary hover:underline"
                                             >
-                                                soporte@grasitamex.com
+                                                ventas@grasitamex.com
                                             </a>
                                         </p>
                                         <p>
                                             <span className="font-medium">WhatsApp:</span>{" "}
                                             <a
-                                                href="https://wa.me/525512345678"
+                                                href="https://wa.me/523311840501"
                                                 className="text-primary hover:underline"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
-                                                +52 55 1234 5678
+                                                +52 33 1184 0501
                                             </a>
                                         </p>
                                     </div>

@@ -38,7 +38,8 @@ interface ShippingAddress {
 
 interface CreatePreferenceRequest {
   items: CartItem[];
-  shipping_address: ShippingAddress;
+  shipping_address?: ShippingAddress | null;
+  delivery_method?: "shipping" | "pickup";
   billing_address?: ShippingAddress;
   coupon_code?: string;
   user_id: string;
@@ -47,7 +48,7 @@ interface CreatePreferenceRequest {
 export async function POST(req: NextRequest) {
   try {
     const body: CreatePreferenceRequest = await req.json();
-    const { items, shipping_address, billing_address, coupon_code, user_id } = body;
+    const { items, shipping_address, delivery_method, billing_address, coupon_code, user_id } = body;
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
     );
 
     // 2. Calcular envío (gratis si >= $2000 MXN)
-    const shippingCost = subtotal >= 200000 ? 0 : 1500; // $15 MXN
+    const shippingCost = delivery_method === "pickup" ? 0 : subtotal >= 200000 ? 0 : 1500; // $15 MXN
 
     // 3. Validar y aplicar cupón si existe
     let discountAmount = 0;
@@ -151,32 +152,56 @@ export async function POST(req: NextRequest) {
     const total = Math.max(0, subtotal + shippingCost - discountAmount);
 
     // 5. Guardar dirección de envío SOLO si es nueva y el usuario quiere guardarla
-    let shippingAddrId: number;
+    let shippingAddrId: number | null = null;
 
-    if (shipping_address.id) {
-      // Dirección existente - usar el ID sin crear nueva
-      shippingAddrId = shipping_address.id;
-    } else {
-      // Nueva dirección - crear en DB
-      const { data: shippingAddr, error: shippingError } = await supa
-        .from('addresses')
-        .insert({
-          user_id,
-          ...shipping_address,
-          country: shipping_address.country || 'MX',
-        })
-        .select()
-        .single();
+    const pickupAddress: ShippingAddress = {
+      full_name: "Pickup",
+      phone: "3311840501",
+      line1: "Calle Plazoleta B 156",
+      line2: "Colonia San Andres",
+      city: "Guadalajara",
+      state: "Jalisco",
+      zip: "44730",
+      country: "MX",
+      reference: "Mostrar # de orden o correo de confirmacion",
+    };
 
-      if (shippingError) {
-        console.error('Error creating shipping address:', shippingError);
+    const effectiveShippingAddress =
+      delivery_method === "pickup" ? pickupAddress : shipping_address;
+
+    if (delivery_method !== "pickup") {
+      if (!effectiveShippingAddress) {
         return NextResponse.json(
-          { error: 'Error al guardar la dirección de envío' },
-          { status: 500 }
+          { error: "Dirección de envío requerida" },
+          { status: 400 }
         );
       }
 
-      shippingAddrId = shippingAddr.id;
+      if (effectiveShippingAddress.id) {
+        // Dirección existente - usar el ID sin crear nueva
+        shippingAddrId = effectiveShippingAddress.id;
+      } else {
+        // Nueva dirección - crear en DB
+        const { data: shippingAddr, error: shippingError } = await supa
+          .from('addresses')
+          .insert({
+            user_id,
+            ...effectiveShippingAddress,
+            country: effectiveShippingAddress.country || 'MX',
+          })
+          .select()
+          .single();
+
+        if (shippingError) {
+          console.error('Error creating shipping address:', shippingError);
+          return NextResponse.json(
+            { error: 'Error al guardar la dirección de envío' },
+            { status: 500 }
+          );
+        }
+
+        shippingAddrId = shippingAddr.id;
+      }
     }
 
     // 5.5 Validar y corregir variant_ids si vienen en 0
@@ -229,6 +254,17 @@ export async function POST(req: NextRequest) {
         { error: orderError?.message || 'Error al procesar el pedido (posible falta de stock)' },
         { status: 400 } // 400 porque puede ser falta de stock
       );
+    }
+
+    const normalizedDeliveryMethod =
+      delivery_method === "pickup" ? "pickup" : "shipment";
+    const { error: deliveryError } = await supa
+      .from('orders')
+      .update({ delivery_method: normalizedDeliveryMethod })
+      .eq('id', orderId);
+
+    if (deliveryError) {
+      console.error('Error updating delivery method:', deliveryError);
     }
 
     // 7. Crear preferencia de MercadoPago
@@ -303,7 +339,7 @@ export async function POST(req: NextRequest) {
           // installments: 12 // Removido para evitar conflictos con montos bajos
         },
         payer: {
-          name: shipping_address.full_name,
+          name: effectiveShippingAddress?.full_name || user.email || 'Pickup',
           email: user.email || 'guest@grasitamex.com', // Fallback seguro
           // Simplificamos el payer para evitar errores de validación de MP
           // MP usará la info guardada del usuario o pedirá lo necesario

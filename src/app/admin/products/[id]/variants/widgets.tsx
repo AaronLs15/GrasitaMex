@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 
@@ -179,7 +180,7 @@ export default function VariantsClient({
                 {/* SKU oculto / ID solo lectura */}
                 {editing && (
                   <div className="space-y-2">
-                    <FormLabel>ID</FormLabel>
+                    <Label>ID</Label>
                     <Input value={editing.id} disabled />
                   </div>
                 )}

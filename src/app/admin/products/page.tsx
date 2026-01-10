@@ -11,7 +11,7 @@ export default async function ProductsPage() {
 
   const [{ data: prods }, { data: cats }] = await Promise.all([
     supa.from('products')
-      .select('id,title,slug,price_cents,currency,published,brand,model_name,condition,description,updated_at')
+      .select('id,title,slug,price_cents,initialprice_cents,currency,published,brand,model_name,condition,description,updated_at')
       .order('updated_at', { ascending: false }),
     supa.from('categories')
       .select('id,name,slug,kind')
@@ -42,32 +42,39 @@ export default async function ProductsPage() {
                 <th className="p-3 font-medium">Marca / Modelo</th>
                 <th className="p-3 font-medium">Condición</th>
                 <th className="p-3 font-medium">Precio</th>
+                <th className="p-3 font-medium">Costo</th>
+                <th className="p-3 font-medium">Ganancia</th>
                 <th className="p-3 font-medium">Publicado</th>
                 <th className="p-3 font-medium w-[320px]">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {(prods ?? []).map(p => (
-                <tr key={p.id} className="transition-colors border-t hover:bg-muted/30">
-                  <td className="p-3">
-                    <div className="font-medium">{p.title}</div>
-                    <div className="text-xs text-muted-foreground">{p.slug}</div>
-                  </td>
-                  <td className="p-3">
-                    <div>{p.brand ?? '-'}</div>
-                    <div className="text-xs text-muted-foreground">{p.model_name ?? '-'}</div>
-                  </td>
-                  <td className="p-3">{p.condition}</td>
-                  <td className="p-3 whitespace-nowrap">{p.currency} ${(p.price_cents / 100).toFixed(2)}</td>
-                  <td className="p-3">{p.published ? 'Sí' : 'No'}</td>
-                  <td className="p-3">
-                    <RowActions product={p} categories={categories} />
-                  </td>
-                </tr>
-              ))}
+              {(prods ?? []).map(p => {
+                const earnings = (p.price_cents || 0) - (p.initialprice_cents || 0);
+                return (
+                  <tr key={p.id} className="transition-colors border-t hover:bg-muted/30">
+                    <td className="p-3">
+                      <div className="font-medium">{p.title}</div>
+                      <div className="text-xs text-muted-foreground">{p.slug}</div>
+                    </td>
+                    <td className="p-3">
+                      <div>{p.brand ?? '-'}</div>
+                      <div className="text-xs text-muted-foreground">{p.model_name ?? '-'}</div>
+                    </td>
+                    <td className="p-3">{p.condition}</td>
+                    <td className="p-3 whitespace-nowrap">{p.currency} ${(p.price_cents / 100).toFixed(2)}</td>
+                    <td className="p-3 whitespace-nowrap">{p.currency} ${((p.initialprice_cents || 0) / 100).toFixed(2)}</td>
+                    <td className="p-3 whitespace-nowrap">{p.currency} ${(earnings / 100).toFixed(2)}</td>
+                    <td className="p-3">{p.published ? 'Sí' : 'No'}</td>
+                    <td className="p-3">
+                      <RowActions product={p} categories={categories} />
+                    </td>
+                  </tr>
+                );
+              })}
               {(!prods || prods.length === 0) && (
                 <tr>
-                  <td className="p-6 text-center text-muted-foreground" colSpan={6}>
+                  <td className="p-6 text-center text-muted-foreground" colSpan={8}>
                     No hay productos. Usa "Nuevo producto".
                   </td>
                 </tr>
@@ -113,6 +120,14 @@ export default async function ProductsPage() {
                 <div>
                   <span className="text-xs text-muted-foreground">Precio:</span>
                   <p className="text-lg font-medium">{p.currency} ${(p.price_cents / 100).toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Costo:</span>
+                  <p className="font-medium">{p.currency} ${((p.initialprice_cents || 0) / 100).toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Ganancia:</span>
+                  <p className="font-medium">{p.currency} ${(((p.price_cents || 0) - (p.initialprice_cents || 0)) / 100).toFixed(2)}</p>
                 </div>
               </div>
 

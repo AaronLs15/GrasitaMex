@@ -7,11 +7,17 @@ export async function createProduct(form: FormData) {
   const supa = await supabaseServer();
   const title = String(form.get('title'));
   const price = Math.round(Number(form.get('price_mxn')) * 100);
+  const initialprice = Math.round(Number(form.get('initial_price_mxn') || 0) * 100);
   const slug = String(form.get('slug') || title.toLowerCase().replace(/\s+/g,'-'));
 
   // RLS permite a admin insertar
   const { data, error } = await supa.from('products').insert({
-    title, slug, price_cents: price, currency: 'MXN', published: false
+    title,
+    slug,
+    price_cents: price,
+    initialprice_cents: initialprice,
+    currency: 'MXN',
+    published: false,
   }).select('*').single();
 
   if (error) throw error;

@@ -1,7 +1,7 @@
 // app/checkout/success/page.tsx
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import HeadNavBar from "@/components/HeadNavBar";
@@ -16,6 +16,7 @@ import {
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { CheckCircle2, Package, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useCart } from "@/context/cart-context";
 
 interface OrderData {
     order: any;
@@ -28,6 +29,8 @@ function SuccessContent() {
     const [orderData, setOrderData] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { clearCart } = useCart();
+    const clearedRef = useRef(false);
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -88,6 +91,14 @@ function SuccessContent() {
         fetchOrder();
     }, [searchParams]);
 
+    useEffect(() => {
+        if (!orderData || clearedRef.current) return;
+        if (orderData.order?.status === "paid") {
+            clearCart();
+            clearedRef.current = true;
+        }
+    }, [orderData, clearCart]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-background text-foreground">
@@ -130,10 +141,11 @@ function SuccessContent() {
     }
 
     const { order, items, address } = orderData;
+    const isPickup = !order.shipping_address_id;
 
     // Calcular costo de envío
     const subtotal = items.reduce((sum, item) => sum + item.line_total_cents, 0);
-    const shippingCost = subtotal >= 200000 ? 0 : 1500;
+    const shippingCost = isPickup ? 0 : subtotal >= 200000 ? 0 : 1500;
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -171,11 +183,25 @@ function SuccessContent() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Package className="w-5 h-5" />
-                                        Información de Envío
+                                        {isPickup ? "Pick up" : "Información de Envío"}
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-2 text-sm">
-                                    {address ? (
+                                    {isPickup ? (
+                                        <div className="space-y-2">
+                                            <p className="font-semibold">
+                                                Recoge tu par en:
+                                            </p>
+                                            <div className="text-muted-foreground">
+                                                Calle Plazoleta B 156, Colonia San Andres,
+                                                CP 44730, Guadalajara, Jalisco.
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Presenta tu # de orden o el correo de confirmación
+                                                del pedido.
+                                            </p>
+                                        </div>
+                                    ) : address ? (
                                         <>
                                             <div>
                                                 <p className="font-semibold">{address.full_name}</p>
@@ -223,9 +249,13 @@ function SuccessContent() {
                                             2
                                         </div>
                                         <div>
-                                            <p className="font-medium">Envío</p>
+                                            <p className="font-medium">
+                                                {isPickup ? "Pick up" : "Envío"}
+                                            </p>
                                             <p className="text-muted-foreground">
-                                                Te enviaremos el número de guía de rastreo
+                                                {isPickup
+                                                    ? "Te avisaremos cuando puedas pasar por tu pedido"
+                                                    : "Te enviaremos el número de guía de rastreo"}
                                             </p>
                                         </div>
                                     </div>
@@ -234,9 +264,13 @@ function SuccessContent() {
                                             3
                                         </div>
                                         <div>
-                                            <p className="font-medium">Entrega</p>
+                                            <p className="font-medium">
+                                                {isPickup ? "Entrega en punto" : "Entrega"}
+                                            </p>
                                             <p className="text-muted-foreground">
-                                                Recibirás tu pedido en la dirección indicada
+                                                {isPickup
+                                                    ? "Presenta tu # de orden al recoger"
+                                                    : "Recibirás tu pedido en la dirección indicada"}
                                             </p>
                                         </div>
                                     </div>
