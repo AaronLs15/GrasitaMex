@@ -41,6 +41,7 @@ export default async function OrdersPage() {
                                 <th className="p-3 font-medium">Cliente</th>
                                 <th className="p-3 font-medium">Fecha</th>
                                 <th className="p-3 font-medium">Estatus</th>
+                                <th className="p-3 font-medium">Entrega</th>
                                 <th className="p-3 font-medium">Pago</th>
                                 <th className="p-3 font-medium text-right">Total</th>
                                 <th className="p-3 font-medium w-[50px]"></th>
@@ -75,6 +76,11 @@ export default async function OrdersPage() {
                                         </Badge>
                                     </td>
                                     <td className="p-3">
+                                        <Badge variant={order.delivery_method === 'pickup' ? 'secondary' : 'outline'}>
+                                            {order.delivery_method === 'pickup' ? 'Pick up' : 'Envío'}
+                                        </Badge>
+                                    </td>
+                                    <td className="p-3">
                                         <div className="flex flex-col gap-1">
                                             <span className={`text-xs font-medium ${order.payment_status === 'approved' ? 'text-green-600' :
                                                     order.payment_status === 'rejected' ? 'text-red-600' :
@@ -94,7 +100,7 @@ export default async function OrdersPage() {
                             ))}
                             {(!orders || orders.length === 0) && (
                                 <tr>
-                                    <td className="p-6 text-center text-muted-foreground" colSpan={7}>
+                                    <td className="p-6 text-center text-muted-foreground" colSpan={8}>
                                         No hay pedidos registrados.
                                     </td>
                                 </tr>

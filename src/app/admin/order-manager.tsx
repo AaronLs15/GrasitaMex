@@ -5,20 +5,38 @@ import { supabaseBrowser } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Package, Truck, CheckCircle, Loader2 } from 'lucide-react'
+import { Package, Truck, CheckCircle, Loader2, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { notifyOrderStatus } from '@/app/actions/email-actions'
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type Order = {
     id: string
     status: string
     total_cents: number
     created_at: string
+    delivery_method?: 'shipment' | 'pickup'
     profiles?: {
         email: string
     }
 }
 
-const statusMap: Record<string, { label: string; color: string; next: string; action: string; icon: any }> = {
+const statusMap: Record<string, { label: string; color: string; next: string; action: string; icon: LucideIcon }> = {
     paid: {
         label: 'Pagado',
         color: 'bg-green-100 text-green-800',
@@ -42,9 +60,14 @@ const statusMap: Record<string, { label: string; color: string; next: string; ac
     },
 }
 
-export default function OrderManager({ initialOrders }: { initialOrders: any[] }) {
+export default function OrderManager({ initialOrders }: { initialOrders: Order[] }) {
     const [orders, setOrders] = useState<Order[]>(initialOrders)
     const [loadingId, setLoadingId] = useState<string | null>(null)
+    const [shippingDialogOpen, setShippingDialogOpen] = useState(false)
+    const [shippingOrderId, setShippingOrderId] = useState<string | null>(null)
+    const [shippingSender, setShippingSender] = useState<'Estafeta' | 'DHL' | 'Fedex'>('Estafeta')
+    const [shippingTracking, setShippingTracking] = useState('')
+    const [shippingError, setShippingError] = useState<string | null>(null)
     const { toast } = useToast()
 
     useEffect(() => {
@@ -65,7 +88,7 @@ export default function OrderManager({ initialOrders }: { initialOrders: any[] }
                         .order('created_at', { ascending: true })
                         .limit(10)
 
-                    if (data) setOrders(data)
+                    if (data) setOrders(data as Order[])
                 }
             )
             .subscribe()
@@ -75,39 +98,84 @@ export default function OrderManager({ initialOrders }: { initialOrders: any[] }
         }
     }, [])
 
+    function openShippingDialog(orderId: string) {
+        setShippingOrderId(orderId)
+        setShippingSender('Estafeta')
+        setShippingTracking('')
+        setShippingError(null)
+        setShippingDialogOpen(true)
+    }
+
     async function advanceStatus(order: Order) {
         const config = statusMap[order.status]
         if (!config) return
 
-        setLoadingId(order.id)
+        if (config.next === 'shipped' && order.delivery_method === 'shipment') {
+            openShippingDialog(order.id)
+            return
+        }
+
+        await submitStatus(order.id, config.next)
+    }
+
+    async function submitStatus(
+        orderId: string,
+        nextStatus: string,
+        trackingNumber?: string,
+        sender?: 'Estafeta' | 'DHL' | 'Fedex'
+    ) {
+        setLoadingId(orderId)
         const supa = supabaseBrowser()
 
         try {
             const { error } = await supa
                 .from('orders')
-                .update({ status: config.next })
-                .eq('id', order.id)
+                .update({ status: nextStatus })
+                .eq('id', orderId)
 
             if (error) throw error
 
-            toast({ title: 'Estado actualizado', description: `Orden movida a ${config.next}` })
+            toast({ title: 'Estado actualizado', description: `Orden movida a ${nextStatus}` })
+
+            // Trigger Email Notifications (non-blocking)
+            notifyOrderStatus(orderId, nextStatus, { trackingNumber, sender }).then(res => {
+                if (!res.success) console.error('Error sending status email:', res.error)
+            })
 
             // Optimistic update
-            if (config.next === 'delivered') {
-                setOrders(prev => prev.filter(o => o.id !== order.id))
+            if (nextStatus === 'delivered') {
+                setOrders(prev => prev.filter(o => o.id !== orderId))
             } else {
-                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: config.next } : o))
+                setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o))
             }
 
-        } catch (e: any) {
-            toast({ title: 'Error', description: e.message, variant: 'destructive' })
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            toast({ title: 'Error', description: message, variant: 'destructive' })
         } finally {
             setLoadingId(null)
         }
     }
 
+    function handleShippingSubmit() {
+        if (!shippingOrderId) return
+        if (!shippingTracking.trim()) {
+            setShippingError('Ingresa el tracking ID.')
+            return
+        }
+        setShippingError(null)
+        setShippingDialogOpen(false)
+        submitStatus(
+            shippingOrderId,
+            'shipped',
+            shippingTracking.trim(),
+            shippingSender
+        )
+    }
+
     return (
-        <Card className="h-full">
+        <>
+            <Card className="h-full">
             <CardHeader>
                 <CardTitle>Gestión de Pedidos</CardTitle>
                 <CardDescription>Pedidos pendientes de acción.</CardDescription>
@@ -162,6 +230,55 @@ export default function OrderManager({ initialOrders }: { initialOrders: any[] }
                     )}
                 </div>
             </CardContent>
-        </Card>
+            </Card>
+            <Dialog open={shippingDialogOpen} onOpenChange={setShippingDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Datos de envio</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Paqueteria</Label>
+                        <Select
+                            value={shippingSender}
+                            onValueChange={(value) => {
+                                if (value === 'Estafeta' || value === 'DHL' || value === 'Fedex') {
+                                    setShippingSender(value);
+                                }
+                            }}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Estafeta">Estafeta</SelectItem>
+                                <SelectItem value="DHL">DHL</SelectItem>
+                                <SelectItem value="Fedex">Fedex</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Tracking ID</Label>
+                        <Input
+                            value={shippingTracking}
+                            onChange={(e) => setShippingTracking(e.target.value)}
+                            placeholder="Ingresa el tracking"
+                        />
+                        {shippingError && (
+                            <p className="text-xs text-destructive">{shippingError}</p>
+                        )}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setShippingDialogOpen(false)}>
+                        Cancelar
+                    </Button>
+                    <Button onClick={handleShippingSubmit}>
+                        Guardar y enviar
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+            </Dialog>
+        </>
     )
 }
