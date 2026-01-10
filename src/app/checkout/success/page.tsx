@@ -18,7 +18,12 @@ import { CheckCircle2, Package, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useCart } from "@/context/cart-context";
 
-type OrderItem = {
+type OrderSummaryItem = {
+    id: number;
+    title: string;
+    size_label: string;
+    quantity: number;
+    unit_price_cents: number;
     line_total_cents: number;
 };
 
@@ -38,14 +43,17 @@ type SuccessOrder = {
     external_reference?: string | null;
     status: string;
     total_cents: number;
+    currency: string;
+    discount_amount_cents: number;
+    coupon_code: string | null;
     created_at: string;
     shipping_address_id?: number | null;
-    order_items?: OrderItem[];
+    order_items?: OrderSummaryItem[];
 };
 
 interface OrderData {
     order: SuccessOrder;
-    items: OrderItem[];
+    items: OrderSummaryItem[];
     address: OrderAddress | null;
 }
 

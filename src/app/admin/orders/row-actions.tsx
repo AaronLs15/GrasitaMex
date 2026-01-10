@@ -19,7 +19,7 @@ import { MoreHorizontal, Eye, Truck, CheckCircle, XCircle, Clock } from "lucide-
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { OrderDetailsSheet } from "./order-details-sheet";
+import { OrderDetailsSheet, type OrderDetails } from "./order-details-sheet";
 import { notifyOrderStatus } from "@/app/actions/email-actions";
 import {
     Dialog,
@@ -39,11 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface RowActionsProps {
-    order: {
-        id: string;
-        status: string;
-        delivery_method?: 'shipment' | 'pickup';
-    };
+    order: OrderDetails;
 }
 
 const ORDER_STATUSES = [

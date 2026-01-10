@@ -22,9 +22,19 @@ export async function notifyOrderStatus(
 
         if (error || !order) throw new Error('Order not found');
 
+        const rawProfile = Array.isArray(order.profiles) ? order.profiles[0] : order.profiles;
+        const normalizedProfiles = rawProfile && typeof rawProfile.email === 'string'
+            ? { email: rawProfile.email, display_name: rawProfile.display_name }
+            : undefined;
+
         const normalizedOrder: Order = {
-            ...(order as Order),
-            profiles: Array.isArray(order.profiles) ? order.profiles[0] : order.profiles,
+            id: order.id,
+            external_reference: order.external_reference,
+            total_cents: order.total_cents ?? 0,
+            created_at: order.created_at,
+            shipping_address_id: order.shipping_address_id ?? undefined,
+            delivery_method: order.delivery_method,
+            profiles: normalizedProfiles,
         };
 
         if (status === 'shipped') {

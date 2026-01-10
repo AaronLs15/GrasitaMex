@@ -22,7 +22,7 @@ type OrderItem = {
     unit_price_cents: number;
 };
 
-type OrderDetails = {
+export type OrderDetails = {
     id: string;
     external_reference?: string | null;
     status: string;
@@ -64,6 +64,7 @@ export function OrderDetailsSheet({
 
     const shippingAddress = order.addresses; // Relación shipping_address_id
     const items = order.order_items || [];
+    const discountCents = order.discount_amount_cents ?? 0;
     const isPickup = order.delivery_method === 'pickup';
 
     return (
@@ -167,10 +168,10 @@ export function OrderDetailsSheet({
                             <span>{formatMoney(order.total_cents + (order.discount_amount_cents || 0))}</span>
                         </div>
 
-                        {order.discount_amount_cents > 0 && (
+                        {discountCents > 0 && (
                             <div className="flex justify-between text-sm text-green-600">
                                 <span>Descuento ({order.coupon_code})</span>
-                                <span>-{formatMoney(order.discount_amount_cents)}</span>
+                                <span>-{formatMoney(discountCents)}</span>
                             </div>
                         )}
 
