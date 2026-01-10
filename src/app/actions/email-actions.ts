@@ -16,20 +16,25 @@ export async function notifyOrderStatus(
     try {
         const { data: order, error } = await supa
             .from('orders')
-            .select('delivery_method, external_reference, id, profiles:user_id(email, display_name)')
+            .select('delivery_method, external_reference, id, total_cents, created_at, shipping_address_id, profiles:user_id(email, display_name)')
             .eq('id', orderId)
             .single();
 
         if (error || !order) throw new Error('Order not found');
 
+        const normalizedOrder = {
+            ...order,
+            profiles: Array.isArray(order.profiles) ? order.profiles[0] : order.profiles,
+        };
+
         if (status === 'shipped') {
             if (order.delivery_method === 'pickup') {
-                await sendOrderPickupReadyEmail(order);
+                await sendOrderPickupReadyEmail(normalizedOrder as any);
             } else {
-                await sendOrderShippedEmail(order, meta?.trackingNumber, meta?.sender);
+                await sendOrderShippedEmail(normalizedOrder as any, meta?.trackingNumber, meta?.sender);
             }
         } else {
-            await sendOrderStatusEmail(order, status);
+            await sendOrderStatusEmail(normalizedOrder as any, status);
         }
         return { success: true };
     } catch (error: any) {
