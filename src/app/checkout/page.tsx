@@ -44,9 +44,9 @@ export default function CheckoutPage() {
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   const shipping =
-    deliveryMethod === "pickup" || !hasItems || totalAmount >= 200000
+    deliveryMethod === "pickup" || !hasItems
       ? 0
-      : 1500;
+      : 15000;
   const discount = appliedCoupon?.discountAmount ?? 0;
   const grandTotal = Math.max(0, totalAmount + shipping - discount);
 
@@ -469,11 +469,6 @@ export default function CheckoutPage() {
                       <span>Total</span>
                       <span>{formatMoney(grandTotal)}</span>
                     </div>
-                    {deliveryMethod === "shipping" && (
-                      <p className="text-xs text-muted-foreground">
-                        Envío gratis a partir de $2,000 MXN en productos.
-                      </p>
-                    )}
 
                     {/* Términos y condiciones */}
                     <div className="flex items-start gap-2 pt-2">
