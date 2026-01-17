@@ -15,8 +15,8 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'GrasitaMex',
-  description: 'Panel de administración',
-  authors: [{ name: "Aaron Lujano" }],
+  description: 'Tienda online de sneakers limitados y originales. Encuentra las mejores zapatillas de edición limitada y disfruta de envíos rápidos y seguros en GrasitaMex.',
+  authors: [{ name: "botz" }],
   icons: {
     icon: '/logoGrasitaMex.ico'
   }
