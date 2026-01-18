@@ -10,8 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { formatMoney } from "@/lib/mercadopago";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatInMexicoCity } from "@/lib/dates";
 
 type OrderItem = {
     id: string | number;
@@ -90,7 +89,7 @@ export function OrderDetailsSheet({
                         </Badge>
                     </div>
                     <SheetDescription>
-                        Realizado el {format(new Date(order.created_at), "PPP 'a las' p", { locale: es })}
+                        Realizado el {formatInMexicoCity(order.created_at, "PPP 'a las' p")}
                     </SheetDescription>
                 </SheetHeader>
 

@@ -6,8 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ShoppingBag } from "lucide-react";
 import { formatMoney } from "@/lib/mercadopago";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatInMexicoCity } from "@/lib/dates";
 import { CustomerOrderDetails } from "./customer-order-details";
 
 type CustomerOrderListItem = {
@@ -74,7 +73,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                                         {order.delivery_method === 'pickup' ? 'Pick up' : 'Envío'}
                                     </Badge>
                                     <p className="text-sm text-muted-foreground">
-                                        {format(new Date(order.created_at), "PPP 'a las' p", { locale: es })}
+                                        {formatInMexicoCity(order.created_at, "PPP 'a las' p")}
                                     </p>
                                 </div>
 

@@ -2,8 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatMoney } from '@/lib/mercadopago';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatInMexicoCity } from '@/lib/dates';
 import RowActions from './row-actions';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +61,7 @@ export default async function OrdersPage() {
                                         </div>
                                     </td>
                                     <td className="p-3 text-muted-foreground">
-                                        {format(new Date(order.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                                        {formatInMexicoCity(order.created_at, "d MMM yyyy, HH:mm")}
                                     </td>
                                     <td className="p-3">
                                         <Badge variant={

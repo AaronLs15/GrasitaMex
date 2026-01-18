@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer';
 import { formatMoney } from './mercadopago';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatInMexicoCity } from './dates';
 
 // Create a transporter using SMTP settings from environment variables
 const smtpPort = Number(process.env.SMTP_PORT) || 587;
@@ -116,7 +115,7 @@ export async function testemail(to: string) {
         <p>Hemos recibido tu pedido correctamente. Aquí están los detalles:</p>
         
         <p><strong>Pedido:</strong> #01</p>
-        <p><strong>Fecha:</strong> ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es })}</p>
+        <p><strong>Fecha:</strong> ${formatInMexicoCity(new Date(), "d 'de' MMMM 'de' yyyy")}</p>
         
         <table>
             <thead>
@@ -220,7 +219,7 @@ export async function sendOrderConfirmationEmail(order: Order, items: OrderLineI
         <p>Hemos recibido tu pedido correctamente. Aquí están los detalles:</p>
         
         <p><strong>Pedido:</strong> #${orderId}</p>
-        <p><strong>Fecha:</strong> ${format(new Date(order.created_at), "d 'de' MMMM 'de' yyyy", { locale: es })}</p>
+        <p><strong>Fecha:</strong> ${formatInMexicoCity(order.created_at, "d 'de' MMMM 'de' yyyy")}</p>
         ${pickupNote}
         
         <table>
@@ -335,7 +334,7 @@ export async function sendOrderNotificationEmail(order: Order, items: OrderLineI
     const html = wrapHtml(`
         <h2>Nuevo pedido recibido</h2>
         <p><strong>Pedido:</strong> #${orderId}</p>
-        <p><strong>Fecha:</strong> ${format(new Date(order.created_at), "d 'de' MMMM 'de' yyyy", { locale: es })}</p>
+        <p><strong>Fecha:</strong> ${formatInMexicoCity(order.created_at, "d 'de' MMMM 'de' yyyy")}</p>
         <p><strong>Cliente:</strong> ${order.profiles?.display_name || 'Cliente'}</p>
         <p><strong>Email:</strong> ${order.profiles?.email || '-'}</p>
         ${deliveryHtml}

@@ -4,8 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ShoppingBag, MapPin, User } from 'lucide-react'
 import { formatMoney } from '@/lib/mercadopago'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { formatInMexicoCity } from '@/lib/dates'
 
 export default async function CustomerDashboard() {
     const supa = await supabaseServer()
@@ -89,7 +88,7 @@ export default async function CustomerDashboard() {
                                     <div>
                                         <p className="font-medium">Pedido #{order.external_reference?.slice(0, 8) || order.id.slice(0, 8)}</p>
                                         <p className="text-sm text-muted-foreground">
-                                            {format(new Date(order.created_at), "PPP", { locale: es })}
+                                            {formatInMexicoCity(order.created_at, "PPP")}
                                         </p>
                                     </div>
                                     <div className="text-right">
