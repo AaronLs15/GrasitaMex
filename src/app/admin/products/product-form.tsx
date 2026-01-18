@@ -55,6 +55,7 @@ const schema = z.object({
     condition: z.enum(["new", "used"]),
     currency: z.string().length(3, "3 letras, p. ej. MXN"),
     price_value: z.coerce.number().min(0, ">= 0"),
+    initial_price_value: z.coerce.number().min(0, ">= 0"),
     published: z.boolean().optional(),
 });
 
@@ -114,6 +115,7 @@ export default function ProductForm({
             condition: initialData?.condition ?? "new",
             currency: initialData?.currency ?? "MXN",
             price_value: initialData ? initialData.price_cents / 100 : 0,
+            initial_price_value: initialData ? initialData.initialprice_cents / 100 : 0,
             published: initialData?.published ?? false,
         },
     });
@@ -147,6 +149,7 @@ export default function ProductForm({
 
         try {
             const price_cents = Math.round(values.price_value * 100);
+            const initialprice_cents = Math.round(values.initial_price_value * 100);
             const payload = {
                 title: values.title,
                 slug: values.slug,
@@ -156,6 +159,7 @@ export default function ProductForm({
                 condition: values.condition,
                 currency: values.currency.toUpperCase(),
                 price_cents,
+                initialprice_cents,
                 published: !!values.published,
             };
 
@@ -360,6 +364,21 @@ export default function ProductForm({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Precio</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" step="0.01" min="0" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="initial_price_value"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Precio de compra</FormLabel>
                                         <FormControl>
                                             <Input type="number" step="0.01" min="0" {...field} />
                                         </FormControl>

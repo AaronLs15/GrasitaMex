@@ -245,21 +245,21 @@ function FailureContent() {
                                         <p>
                                             <span className="font-medium">Email:</span>{" "}
                                             <a
-                                                href="mailto:soporte@grasitamex.com"
+                                                href="mailto:ventas@grasitamex.com"
                                                 className="text-primary hover:underline"
                                             >
-                                                soporte@grasitamex.com
+                                                ventas@grasitamex.com
                                             </a>
                                         </p>
                                         <p>
                                             <span className="font-medium">WhatsApp:</span>{" "}
                                             <a
-                                                href="https://wa.me/525512345678"
+                                                href="https://wa.me/523311840501"
                                                 className="text-primary hover:underline"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
-                                                +52 55 1234 5678
+                                                +52 33 1184 0501
                                             </a>
                                         </p>
                                     </div>

@@ -257,7 +257,7 @@ export default function Home() {
             className="order-2 md:order-1"
           >
             <Badge variant="secondary" className="mb-4">
-              Nueva colección • Otoño 2025
+              Sneakers 100% Originales
             </Badge>
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Sneakers para el diario.{" "}
@@ -288,8 +288,7 @@ export default function Home() {
                 <Star className="w-4 h-4" />
                 <span>4.9/5 clientes</span>
               </div>
-              <div className="w-1 h-1 rounded-full bg-muted" />
-              <span>Devoluciones fáciles</span>
+              
             </div>
           </motion.div>
 
@@ -385,6 +384,39 @@ export default function Home() {
                 Suscribirme
               </BtnSuscribe>
             </form>
+          </div>
+        </Card>
+      </section>
+
+      {/* Soporte al cliente */}
+      <section className="px-4 pb-16 mx-auto max-w-7xl">
+        <Card className="rounded-3xl">
+          <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 sm:p-8">
+            <div>
+              <h3 className="text-xl font-semibold">Soporte al cliente</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                ¿Tienes dudas? Contáctanos y te ayudamos rápido.
+              </p>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Correo</p>
+                <a className="font-medium hover:underline" href="mailto:ventas@grasitamex.com">
+                  ventas@grasitamex.com
+                </a>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">WhatsApp</p>
+                <a
+                  className="font-medium hover:underline"
+                  href="https://wa.me/523311840501"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  +52 33 1184 0501
+                </a>
+              </div>
+            </div>
           </div>
         </Card>
       </section>
@@ -544,17 +576,22 @@ function Footer() {
           </ul>
         </div>
         <div>
-          <p className="mb-2 text-sm font-semibold">Administración</p>
+          <p className="mb-2 text-sm font-semibold">Atención al cliente</p>
           <ul className="space-y-1 text-sm text-muted-foreground">
             <li>
-              <Link className="hover:underline" href="/admin">
-                Panel
-              </Link>
+              <a className="hover:underline" href="mailto:ventas@grasitamex.com">
+                ventas@grasitamex.com
+              </a>
             </li>
             <li>
-              <Link className="hover:underline" href="/pedidos">
-                Pedidos
-              </Link>
+              <a
+                className="hover:underline"
+                href="https://wa.me/523311840501"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WhatsApp: +52 33 1184 0501
+              </a>
             </li>
           </ul>
         </div>
@@ -565,7 +602,7 @@ function Footer() {
             © {new Date().getFullYear()} GrasitaMex. Todos los derechos
             reservados.
           </span>
-          <span>By ALDevelopment</span>
+          <span>By Bots.dev</span>
         </div>
       </div>
     </footer>

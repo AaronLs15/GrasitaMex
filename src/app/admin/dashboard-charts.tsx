@@ -29,18 +29,26 @@ type DataPoint = {
     orders: number;
     customers: number;
     sales: number; // Added sales
+    earnings: number;
+};
+
+type CategoryEarning = {
+    category: string;
+    earnings: number;
 };
 
 interface DashboardChartsProps {
     weeklyData: DataPoint[];
     monthlyData: DataPoint[];
     yearlyData: DataPoint[];
+    categoryEarnings: CategoryEarning[];
 }
 
 export default function DashboardCharts({
     weeklyData,
     monthlyData,
     yearlyData,
+    categoryEarnings,
 }: DashboardChartsProps) {
     const [period, setPeriod] = useState<"week" | "month" | "year">("week");
 
@@ -65,7 +73,11 @@ export default function DashboardCharts({
                 <h2 className="text-2xl font-bold tracking-tight">Resumen</h2>
                 <Tabs
                     value={period}
-                    onValueChange={(v) => setPeriod(v as any)}
+                    onValueChange={(v) => {
+                        if (v === "week" || v === "month" || v === "year") {
+                            setPeriod(v);
+                        }
+                    }}
                     className="w-[400px]"
                 >
                     <TabsList>
@@ -115,6 +127,51 @@ export default function DashboardCharts({
                                     stroke="#10b981"
                                     fillOpacity={1}
                                     fill="url(#colorSales)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Earnings Netos</CardTitle>
+                    <CardDescription>Después de comisión de Mercado Pago</CardDescription>
+                </CardHeader>
+                <CardContent className="pl-2">
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={data}>
+                                <defs>
+                                    <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis
+                                    dataKey="date"
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                />
+                                <YAxis
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `$${value}`}
+                                />
+                                <Tooltip
+                                    formatter={(value: number) => [formatCurrency(value), "Earnings"]}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="earnings"
+                                    stroke="#f97316"
+                                    fillOpacity={1}
+                                    fill="url(#colorEarnings)"
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -232,6 +289,43 @@ export default function DashboardCharts({
                     </CardContent>
                 </Card>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Earnings por Categoría</CardTitle>
+                    <CardDescription>Top categorías por ganancia neta</CardDescription>
+                </CardHeader>
+                <CardContent className="pl-2">
+                    <div className="h-[280px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={categoryEarnings}>
+                                <XAxis
+                                    dataKey="category"
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                />
+                                <YAxis
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `$${value}`}
+                                />
+                                <Tooltip
+                                    formatter={(value: number) => [formatCurrency(value), "Earnings"]}
+                                />
+                                <Bar
+                                    dataKey="earnings"
+                                    fill="#f59e0b"
+                                    radius={[4, 4, 0, 0]}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

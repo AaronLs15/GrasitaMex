@@ -3,13 +3,39 @@ import DashboardCharts from "./dashboard-charts";
 import RecentSales from "./recent-sales";
 import OrderManager from "./order-manager";
 
+type OrderRow = {
+  id: string;
+  created_at: string;
+  total_cents: number | null;
+  status: string;
+};
+
+type OrderItemRow = {
+  order_id: string;
+  product_id: number;
+  quantity: number | null;
+  unit_price_cents: number | null;
+  initial_price_cents: number | null;
+};
+
+type ProductCategoryRow = {
+  product_id: number;
+  category_id: number;
+};
+
+type CategoryRow = {
+  id: number;
+  name: string;
+  kind: string;
+};
+
 export default async function AdminHome() {
   const supa = await supabaseServer();
 
   // Fetch data in parallel
   const [
     { count: viewsCount, data: views },
-    { count: ordersCount, data: orders },
+    { count: ordersCount, data: ordersRaw },
     { count: customersCount, data: customers },
     { data: recentOrders },
     { data: pendingOrders },
@@ -17,7 +43,7 @@ export default async function AdminHome() {
     supa.from("page_views").select("created_at", { count: "exact" }),
     supa
       .from("orders")
-      .select("created_at, total_cents, status") // Added total_cents and status
+      .select("id, created_at, total_cents, status") // Added total_cents and status
       .in("status", ["paid", "processing", "shipped", "delivered"]),
     supa
       .from("profiles")
@@ -38,12 +64,88 @@ export default async function AdminHome() {
       .limit(10),
   ]);
 
+  const orders = (ordersRaw ?? []) as OrderRow[];
+  const orderIds = orders.map((order) => order.id).filter(Boolean);
+  let orderItems: OrderItemRow[] = [];
+
+  if (orderIds.length > 0) {
+    const { data: items } = await supa
+      .from("order_items")
+      .select("order_id, product_id, quantity, unit_price_cents, initial_price_cents")
+      .in("order_id", orderIds);
+
+    orderItems = (items ?? []) as OrderItemRow[];
+  }
+
+  const productIds = Array.from(
+    new Set(orderItems.map((item) => item.product_id).filter(Boolean))
+  );
+
+  let productCategoryRows: ProductCategoryRow[] = [];
+  let categoriesById = new Map<number, { name: string; kind: string }>();
+
+  if (productIds.length > 0) {
+    const { data: categoryRows } = await supa
+      .from("product_categories")
+      .select("product_id, category_id")
+      .in("product_id", productIds);
+
+    productCategoryRows = (categoryRows ?? []) as ProductCategoryRow[];
+
+    const categoryIds = Array.from(
+      new Set(productCategoryRows.map((row) => row.category_id).filter(Boolean))
+    );
+
+    if (categoryIds.length > 0) {
+      const { data: categoriesData } = await supa
+        .from("categories")
+        .select("id, name, kind")
+        .in("id", categoryIds);
+
+      categoriesById = new Map(
+        ((categoriesData ?? []) as CategoryRow[]).map((cat) => [cat.id, { name: cat.name, kind: cat.kind }])
+      );
+    }
+  }
+
   // Calculate Total Sales (from all paid/processing/shipped/delivered)
   const totalSalesCents = orders?.reduce((acc, order) => acc + (order.total_cents || 0), 0) || 0;
   const totalSales = totalSalesCents / 100;
 
   // Calculate Delivered Orders Count
   const deliveredCount = orders?.filter(o => o.status === 'delivered').length || 0;
+
+  const orderItemsByOrderId = new Map<string, OrderItemRow[]>();
+  const orderGrossEarningsCents = new Map<string, number>();
+  const orderItemTotalsCents = new Map<string, number>();
+
+  for (const item of orderItems) {
+    const orderId = item.order_id as string;
+    const unitPrice = item.unit_price_cents || 0;
+    const initialPrice = item.initial_price_cents || 0;
+    const quantity = item.quantity || 0;
+    const lineTotal = unitPrice * quantity;
+    const gross = (unitPrice - initialPrice) * quantity;
+
+    if (!orderItemsByOrderId.has(orderId)) orderItemsByOrderId.set(orderId, []);
+    orderItemsByOrderId.get(orderId)!.push(item);
+
+    orderGrossEarningsCents.set(orderId, (orderGrossEarningsCents.get(orderId) || 0) + gross);
+    orderItemTotalsCents.set(orderId, (orderItemTotalsCents.get(orderId) || 0) + lineTotal);
+  }
+
+  const feeForOrderCents = (totalCents: number) => Math.round(totalCents * 0.0349 + 400);
+  const orderNetEarningsCents = new Map<string, number>();
+
+  for (const order of orders ?? []) {
+    const gross = orderGrossEarningsCents.get(order.id) || 0;
+    const fee = feeForOrderCents(order.total_cents || 0);
+    orderNetEarningsCents.set(order.id, gross - fee);
+  }
+
+  const totalNetEarningsCents =
+    Array.from(orderNetEarningsCents.values()).reduce((acc, value) => acc + value, 0) || 0;
+  const totalNetEarnings = totalNetEarningsCents / 100;
 
   // Generate date ranges
   const now = new Date();
@@ -93,10 +195,14 @@ export default async function AdminHome() {
     const o = dayOrders.filter(x => x.status === 'delivered').length;
     // Sales = All paid+
     const s = dayOrders.reduce((acc, ord) => acc + (ord.total_cents || 0), 0) / 100;
+    const e = dayOrders.reduce(
+      (acc, ord) => acc + (orderNetEarningsCents.get(ord.id) || 0),
+      0
+    ) / 100;
 
     const c = customers?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd).length || 0;
 
-    return { date: dateStr, views: v, orders: o, customers: c, sales: s };
+    return { date: dateStr, views: v, orders: o, customers: c, sales: s, earnings: e };
   });
 
   // Monthly Data (Last 30 days)
@@ -110,10 +216,14 @@ export default async function AdminHome() {
 
     const o = dayOrders.filter(x => x.status === 'delivered').length;
     const s = dayOrders.reduce((acc, ord) => acc + (ord.total_cents || 0), 0) / 100;
+    const e = dayOrders.reduce(
+      (acc, ord) => acc + (orderNetEarningsCents.get(ord.id) || 0),
+      0
+    ) / 100;
 
     const c = customers?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd).length || 0;
 
-    return { date: dateStr, views: v, orders: o, customers: c, sales: s };
+    return { date: dateStr, views: v, orders: o, customers: c, sales: s, earnings: e };
   });
 
   // Yearly Data (Last 12 months)
@@ -134,11 +244,64 @@ export default async function AdminHome() {
 
     const o = monthOrders.filter(x => x.status === 'delivered').length;
     const s = monthOrders.reduce((acc, ord) => acc + (ord.total_cents || 0), 0) / 100;
+    const e = monthOrders.reduce(
+      (acc, ord) => acc + (orderNetEarningsCents.get(ord.id) || 0),
+      0
+    ) / 100;
 
     const c = customers?.filter(x => new Date(x.created_at) >= monthStart && new Date(x.created_at) <= monthEnd).length || 0;
 
-    return { date: dateStr, views: v, orders: o, customers: c, sales: s };
+    return { date: dateStr, views: v, orders: o, customers: c, sales: s, earnings: e };
   });
+
+  const productCategoriesByProductId = new Map<number, string[]>();
+
+  for (const row of productCategoryRows) {
+    const categoryInfo = categoriesById.get(row.category_id);
+    if (!categoryInfo || categoryInfo.kind !== "general") continue;
+
+    if (!productCategoriesByProductId.has(row.product_id)) {
+      productCategoriesByProductId.set(row.product_id, []);
+    }
+
+    productCategoriesByProductId.get(row.product_id)!.push(categoryInfo.name);
+  }
+
+  const categoryEarningsCents = new Map<string, number>();
+
+  for (const order of orders ?? []) {
+    const orderId = order.id as string;
+    const items = orderItemsByOrderId.get(orderId) || [];
+    const totalItemCents = orderItemTotalsCents.get(orderId) || 0;
+    const feeCents = feeForOrderCents(order.total_cents || 0);
+
+    for (const item of items) {
+      const unitPrice = item.unit_price_cents || 0;
+      const initialPrice = item.initial_price_cents || 0;
+      const quantity = item.quantity || 0;
+      const lineTotal = unitPrice * quantity;
+      const gross = (unitPrice - initialPrice) * quantity;
+      const feeShare =
+        totalItemCents > 0 ? Math.round((feeCents * lineTotal) / totalItemCents) : 0;
+      const net = gross - feeShare;
+
+      const categoriesForProduct = productCategoriesByProductId.get(item.product_id) || [
+        "Sin categoría",
+      ];
+
+      for (const category of categoriesForProduct) {
+        categoryEarningsCents.set(
+          category,
+          (categoryEarningsCents.get(category) || 0) + net
+        );
+      }
+    }
+  }
+
+  const categoryEarnings = Array.from(categoryEarningsCents.entries())
+    .map(([category, cents]) => ({ category, earnings: cents / 100 }))
+    .sort((a, b) => b.earnings - a.earnings)
+    .slice(0, 8);
 
   return (
     <div className="space-y-6">
@@ -150,11 +313,17 @@ export default async function AdminHome() {
       </div>
 
       {/* Top Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <div className="p-6 border rounded-lg shadow-sm bg-card">
           <h3 className="text-sm font-medium text-muted-foreground">Ventas Totales</h3>
           <p className="text-2xl font-bold">
             {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(totalSales)}
+          </p>
+        </div>
+        <div className="p-6 border rounded-lg shadow-sm bg-card">
+          <h3 className="text-sm font-medium text-muted-foreground">Earnings Netos (MP)</h3>
+          <p className="text-2xl font-bold">
+            {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(totalNetEarnings)}
           </p>
         </div>
         <div className="p-6 border rounded-lg shadow-sm bg-card">
@@ -178,6 +347,7 @@ export default async function AdminHome() {
             weeklyData={weeklyData}
             monthlyData={monthlyData}
             yearlyData={yearlyData}
+            categoryEarnings={categoryEarnings}
           />
           <OrderManager initialOrders={pendingOrders || []} />
         </div>

@@ -13,8 +13,44 @@ import { formatMoney } from "@/lib/mercadopago";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+type OrderItem = {
+    id: string | number;
+    title: string;
+    size_label?: string | null;
+    quantity: number;
+    line_total_cents: number;
+    unit_price_cents: number;
+};
+
+export type OrderDetails = {
+    id: string;
+    external_reference?: string | null;
+    status: string;
+    created_at: string;
+    total_cents: number;
+    discount_amount_cents?: number | null;
+    coupon_code?: string | null;
+    payment_status?: string | null;
+    payment_id?: string | null;
+    preference_id?: string | null;
+    delivery_method?: 'shipment' | 'pickup';
+    profiles?: { display_name?: string | null; email?: string | null };
+    addresses?: {
+        full_name?: string | null;
+        line1?: string | null;
+        line2?: string | null;
+        city?: string | null;
+        state?: string | null;
+        zip?: string | null;
+        country?: string | null;
+        phone?: string | null;
+        reference?: string | null;
+    } | null;
+    order_items?: OrderItem[];
+};
+
 interface OrderDetailsSheetProps {
-    order: any; // Idealmente usar tipos generados de Supabase
+    order: OrderDetails | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
@@ -28,6 +64,8 @@ export function OrderDetailsSheet({
 
     const shippingAddress = order.addresses; // Relación shipping_address_id
     const items = order.order_items || [];
+    const discountCents = order.discount_amount_cents ?? 0;
+    const isPickup = order.delivery_method === 'pickup';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -61,9 +99,20 @@ export function OrderDetailsSheet({
 
                     {/* Dirección de Envío */}
                     <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Dirección de Envío</h3>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                            {isPickup ? 'Pick up' : 'Dirección de Envío'}
+                        </h3>
                         <div className="bg-muted/40 p-3 rounded-lg text-sm space-y-1">
-                            {shippingAddress ? (
+                            {isPickup ? (
+                                <>
+                                    <p className="font-medium">Recoge tu par en:</p>
+                                    <p>Calle Plazoleta B 156, Colonia San Andres</p>
+                                    <p>CP 44730, Guadalajara, Jalisco.</p>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        Presenta tu # de orden o el correo de confirmacion del pedido.
+                                    </p>
+                                </>
+                            ) : shippingAddress ? (
                                 <>
                                     <p className="font-medium">{shippingAddress.full_name}</p>
                                     <p>{shippingAddress.line1}</p>
@@ -89,7 +138,7 @@ export function OrderDetailsSheet({
                     <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-3">Productos ({items.length})</h3>
                         <div className="space-y-3">
-                            {items.map((item: any) => (
+                            {items.map((item) => (
                                 <div key={item.id} className="flex justify-between text-sm">
                                     <div className="flex-1">
                                         <p className="font-medium">{item.title}</p>
@@ -119,10 +168,10 @@ export function OrderDetailsSheet({
                             <span>{formatMoney(order.total_cents + (order.discount_amount_cents || 0))}</span>
                         </div>
 
-                        {order.discount_amount_cents > 0 && (
+                        {discountCents > 0 && (
                             <div className="flex justify-between text-sm text-green-600">
                                 <span>Descuento ({order.coupon_code})</span>
-                                <span>-{formatMoney(order.discount_amount_cents)}</span>
+                                <span>-{formatMoney(discountCents)}</span>
                             </div>
                         )}
 

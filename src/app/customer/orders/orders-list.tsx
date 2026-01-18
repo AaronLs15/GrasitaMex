@@ -10,15 +10,24 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CustomerOrderDetails } from "./customer-order-details";
 
+type CustomerOrderListItem = {
+    id: string;
+    external_reference?: string | null;
+    status: string;
+    created_at: string;
+    total_cents: number;
+    delivery_method?: 'shipment' | 'pickup';
+};
+
 interface OrdersListProps {
-    orders: any[];
+    orders: CustomerOrderListItem[];
 }
 
 export default function OrdersList({ orders }: OrdersListProps) {
-    const [selectedOrder, setSelectedOrder] = useState<any>(null);
+    const [selectedOrder, setSelectedOrder] = useState<CustomerOrderListItem | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    const openDetails = (order: any) => {
+    const openDetails = (order: CustomerOrderListItem) => {
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };
@@ -41,7 +50,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                         <CardContent className="p-0">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <span className="font-mono font-medium">
                                             #{order.external_reference?.slice(0, 8) || order.id.slice(0, 8)}
                                         </span>
@@ -57,7 +66,13 @@ export default function OrdersList({ orders }: OrdersListProps) {
                                                         order.status === 'cancelled' ? 'Cancelado' :
                                                             order.status}
                                         </Badge>
+                                        <Badge className="hidden sm:inline-flex" variant={order.delivery_method === 'pickup' ? 'secondary' : 'outline'}>
+                                            {order.delivery_method === 'pickup' ? 'Pick up' : 'Envío'}
+                                        </Badge>
                                     </div>
+                                    <Badge className="sm:hidden w-fit" variant={order.delivery_method === 'pickup' ? 'secondary' : 'outline'}>
+                                        {order.delivery_method === 'pickup' ? 'Pick up' : 'Envío'}
+                                    </Badge>
                                     <p className="text-sm text-muted-foreground">
                                         {format(new Date(order.created_at), "PPP 'a las' p", { locale: es })}
                                     </p>

@@ -31,6 +31,9 @@ export default function CheckoutPage() {
   const [user, setUser] = useState<any>(null);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<"shipping" | "pickup">(
+    "shipping"
+  );
 
   // Coupon state
   const [couponCode, setCouponCode] = useState("");
@@ -40,7 +43,10 @@ export default function CheckoutPage() {
   } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
-  const shipping = !hasItems || totalAmount >= 200000 ? 0 : 1500;
+  const shipping =
+    deliveryMethod === "pickup" || !hasItems
+      ? 0
+      : 15000;
   const discount = appliedCoupon?.discountAmount ?? 0;
   const grandTotal = Math.max(0, totalAmount + shipping - discount);
 
@@ -64,7 +70,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!selectedAddress) {
+    if (deliveryMethod === "shipping" && !selectedAddress) {
       toast({
         title: "Dirección requerida",
         description: "Por favor completa los datos de envío.",
@@ -103,7 +109,8 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: formattedItems,
-          shipping_address: selectedAddress,
+          shipping_address: deliveryMethod === "shipping" ? selectedAddress : null,
+          delivery_method: deliveryMethod,
           coupon_code: appliedCoupon?.code || null,
           user_id: user.id,
         }),
@@ -262,6 +269,43 @@ export default function CheckoutPage() {
 
             <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
               <div className="space-y-6">
+                <Card className="rounded-2xl border bg-card/80">
+                  <CardHeader>
+                    <CardTitle>Entrega</CardTitle>
+                    <CardDescription>
+                      Elige si quieres envío a domicilio o pick up en tienda.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod("shipping")}
+                      className={`rounded-xl border p-4 text-left transition ${deliveryMethod === "shipping"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                        }`}
+                    >
+                      <p className="text-sm font-semibold">Envío a domicilio</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Entregamos directo a tu dirección.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod("pickup")}
+                      className={`rounded-xl border p-4 text-left transition ${deliveryMethod === "pickup"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                        }`}
+                    >
+                      <p className="text-sm font-semibold">Pick up</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Recoge en punto autorizado.
+                      </p>
+                    </button>
+                  </CardContent>
+                </Card>
+
                 {/* Items del carrito */}
                 <section className="space-y-4">
                   {items.map((item) => {
@@ -311,11 +355,30 @@ export default function CheckoutPage() {
                 </section>
 
                 {/* Formulario de dirección */}
-                {user && (
+                {user && deliveryMethod === "shipping" && (
                   <AddressForm
                     userId={user.id}
                     onAddressChange={setSelectedAddress}
                   />
+                )}
+
+                {deliveryMethod === "pickup" && (
+                  <Card className="rounded-2xl border bg-card/80">
+                    <CardHeader>
+                      <CardTitle>Punto de entrega</CardTitle>
+                      <CardDescription>Recoge tu producto en:</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div className="rounded-xl border border-dashed p-3">
+                        Calle Plazoleta B 156, Colonia San Andres,
+                        CP 44730, Guadalajara, Jalisco.
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Para entregar el producto es necesario mostrar el
+                        # de orden o el correo de confirmación del pedido.
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
 
@@ -387,7 +450,13 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span>Envío</span>
-                      <span>{shipping === 0 ? "Gratis" : formatMoney(shipping)}</span>
+                      <span>
+                        {deliveryMethod === "pickup"
+                          ? "Pick up"
+                          : shipping === 0
+                            ? "Gratis"
+                            : formatMoney(shipping)}
+                      </span>
                     </div>
                     {appliedCoupon && (
                       <div className="flex items-center justify-between text-sm text-primary">
@@ -400,9 +469,6 @@ export default function CheckoutPage() {
                       <span>Total</span>
                       <span>{formatMoney(grandTotal)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Envío gratis a partir de $2,000 MXN en productos.
-                    </p>
 
                     {/* Términos y condiciones */}
                     <div className="flex items-start gap-2 pt-2">
@@ -438,7 +504,7 @@ export default function CheckoutPage() {
                         disabled={
                           !acceptedTerms ||
                           isProcessing ||
-                          !selectedAddress
+                          (deliveryMethod === "shipping" && !selectedAddress)
                         }
                         className="w-full rounded-xl"
                       >
