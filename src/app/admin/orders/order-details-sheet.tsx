@@ -34,6 +34,7 @@ export type OrderDetails = {
     payment_id?: string | null;
     preference_id?: string | null;
     delivery_method?: 'shipment' | 'pickup';
+    shipping_address_id?: number | null;
     profiles?: { display_name?: string | null; email?: string | null };
     addresses?: {
         full_name?: string | null;
@@ -65,7 +66,13 @@ export function OrderDetailsSheet({
     const shippingAddress = order.addresses; // Relación shipping_address_id
     const items = order.order_items || [];
     const discountCents = order.discount_amount_cents ?? 0;
-    const isPickup = order.delivery_method === 'pickup';
+    const isPickup = order.delivery_method
+        ? order.delivery_method === 'pickup'
+        : !order.shipping_address_id;
+    const itemsSubtotalCents = items.reduce((sum, item) => sum + item.line_total_cents, 0);
+    const shippingCostCents = isPickup ? 0 : 15000;
+    const subtotalCents = itemsSubtotalCents + shippingCostCents;
+    const totalCents = Math.max(0, subtotalCents - discountCents);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -164,8 +171,20 @@ export function OrderDetailsSheet({
                     {/* Totales */}
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Método de entrega</span>
+                            <span>{isPickup ? 'Pick up' : 'Envío'}</span>
+                        </div>
+
+                        {!isPickup && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Envío</span>
+                                <span>{shippingCostCents === 0 ? 'Gratis' : formatMoney(shippingCostCents)}</span>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Subtotal</span>
-                            <span>{formatMoney(order.total_cents + (order.discount_amount_cents || 0))}</span>
+                            <span>{formatMoney(subtotalCents)}</span>
                         </div>
 
                         {discountCents > 0 && (
@@ -177,7 +196,7 @@ export function OrderDetailsSheet({
 
                         <div className="flex justify-between text-base font-bold pt-2">
                             <span>Total</span>
-                            <span>{formatMoney(order.total_cents)}</span>
+                            <span>{formatMoney(totalCents)}</span>
                         </div>
                     </div>
 

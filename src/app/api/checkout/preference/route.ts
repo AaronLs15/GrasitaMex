@@ -105,8 +105,8 @@ export async function POST(req: NextRequest) {
       0
     );
 
-    // 2. Calcular envío (gratis si >= $2000 MXN)
-    const shippingCost = delivery_method === "pickup" ? 0 : subtotal >= 200000 ? 0 : 1500; // $15 MXN
+    // 2. Calcular envio (pickup gratis, envio fijo $150 MXN)
+    const shippingCost = delivery_method === "pickup" ? 0 : 15000;
 
     // 3. Validar y aplicar cupón si existe
     let discountAmount = 0;

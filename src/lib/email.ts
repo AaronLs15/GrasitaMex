@@ -36,6 +36,7 @@ export type Order = {
     total_cents: number;
     shipping_cost_cents?: number;
     discount_amount_cents?: number;
+    coupon_code?: string | null;
     shipping_address_id?: number | null;
     delivery_method?: 'shipment' | 'pickup';
     addresses?: {
@@ -99,6 +100,7 @@ const PICKUP_ADDRESS_LINES = [
     'Colonia San Andres',
     'CP 44730, Guadalajara, Jalisco.',
 ];
+const DEFAULT_SHIPPING_COST_CENTS = 15000;
 
 function getPickupHtml() {
     return `
@@ -185,21 +187,28 @@ export async function sendOrderConfirmationEmail(order: Order, items: OrderLineI
         0
     );
     const discountCents = toNumber(order.discount_amount_cents);
-    const orderTotalCents = toNumber(order.total_cents);
-
-    let shippingCostCents = toNumber(order.shipping_cost_cents);
-    if (!shippingCostCents && orderTotalCents > 0) {
-        const computedShipping = orderTotalCents + discountCents - itemsSubtotalCents;
-        if (computedShipping > 0) {
-            shippingCostCents = computedShipping;
-        }
-    }
+    const shippingCostCents = isPickup ? 0 : DEFAULT_SHIPPING_COST_CENTS;
+    const totalCents = Math.max(0, itemsSubtotalCents + shippingCostCents - discountCents);
 
     const shippingRow = shippingCostCents > 0
         ? `
                 <tr>
                     <td colspan="2" style="text-align:right"><strong>Envío:</strong></td>
                     <td><strong>${fMoney(shippingCostCents)}</strong></td>
+                </tr>
+        `
+        : '';
+    const subtotalRow = `
+                <tr>
+                    <td colspan="2" style="text-align:right"><strong>Subtotal:</strong></td>
+                    <td><strong>${fMoney(itemsSubtotalCents)}</strong></td>
+                </tr>
+        `;
+    const discountRow = discountCents > 0
+        ? `
+                <tr>
+                    <td colspan="2" style="text-align:right"><strong>Descuento${order.coupon_code ? ` (${order.coupon_code})` : ''}:</strong></td>
+                    <td><strong>-${fMoney(discountCents)}</strong></td>
                 </tr>
         `
         : '';
@@ -227,9 +236,11 @@ export async function sendOrderConfirmationEmail(order: Order, items: OrderLineI
             </tbody>
             <tfoot>
                 ${shippingRow}
+                ${subtotalRow}
+                ${discountRow}
                 <tr>
                     <td colspan="2" style="text-align:right"><strong>Total:</strong></td>
-                    <td><strong>${fMoney(orderTotalCents)}</strong></td>
+                    <td><strong>${fMoney(totalCents)}</strong></td>
                 </tr>
             </tfoot>
         </table>
@@ -285,21 +296,28 @@ export async function sendOrderNotificationEmail(order: Order, items: OrderLineI
         0
     );
     const discountCents = toNumber(order.discount_amount_cents);
-    const orderTotalCents = toNumber(order.total_cents);
-
-    let shippingCostCents = toNumber(order.shipping_cost_cents);
-    if (!shippingCostCents && orderTotalCents > 0) {
-        const computedShipping = orderTotalCents + discountCents - itemsSubtotalCents;
-        if (computedShipping > 0) {
-            shippingCostCents = computedShipping;
-        }
-    }
+    const shippingCostCents = isPickup ? 0 : DEFAULT_SHIPPING_COST_CENTS;
+    const totalCents = Math.max(0, itemsSubtotalCents + shippingCostCents - discountCents);
 
     const shippingRow = shippingCostCents > 0
         ? `
                 <tr>
                     <td colspan="2" style="text-align:right"><strong>Envío:</strong></td>
                     <td><strong>${fMoney(shippingCostCents)}</strong></td>
+                </tr>
+        `
+        : '';
+    const subtotalRow = `
+                <tr>
+                    <td colspan="2" style="text-align:right"><strong>Subtotal:</strong></td>
+                    <td><strong>${fMoney(itemsSubtotalCents)}</strong></td>
+                </tr>
+        `;
+    const discountRow = discountCents > 0
+        ? `
+                <tr>
+                    <td colspan="2" style="text-align:right"><strong>Descuento${order.coupon_code ? ` (${order.coupon_code})` : ''}:</strong></td>
+                    <td><strong>-${fMoney(discountCents)}</strong></td>
                 </tr>
         `
         : '';
@@ -335,9 +353,11 @@ export async function sendOrderNotificationEmail(order: Order, items: OrderLineI
             </tbody>
             <tfoot>
                 ${shippingRow}
+                ${subtotalRow}
+                ${discountRow}
                 <tr>
                     <td colspan="2" style="text-align:right"><strong>Total:</strong></td>
-                    <td><strong>${fMoney(orderTotalCents)}</strong></td>
+                    <td><strong>${fMoney(totalCents)}</strong></td>
                 </tr>
             </tfoot>
         </table>

@@ -48,6 +48,7 @@ type SuccessOrder = {
     coupon_code: string | null;
     created_at: string;
     shipping_address_id?: number | null;
+    delivery_method?: "shipment" | "pickup";
     order_items?: OrderSummaryItem[];
 };
 
@@ -174,11 +175,12 @@ function SuccessContent() {
     }
 
     const { order, items, address } = orderData;
-    const isPickup = !order.shipping_address_id;
+    const isPickup = order.delivery_method
+        ? order.delivery_method === "pickup"
+        : !order.shipping_address_id;
 
-    // Calcular costo de envío
-    const subtotal = items.reduce((sum, item) => sum + item.line_total_cents, 0);
-    const shippingCost = isPickup ? 0 : subtotal >= 200000 ? 0 : 1500;
+    // Calcular costo de envio
+    const shippingCost = isPickup ? 0 : 15000;
 
     return (
         <div className="min-h-screen bg-background text-foreground">

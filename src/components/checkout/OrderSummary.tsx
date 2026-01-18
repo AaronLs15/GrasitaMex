@@ -31,7 +31,9 @@ interface OrderSummaryProps {
 }
 
 export function OrderSummary({ order, items, shippingCost = 0 }: OrderSummaryProps) {
-    const subtotal = items.reduce((sum, item) => sum + item.line_total_cents, 0);
+    const itemsSubtotalCents = items.reduce((sum, item) => sum + item.line_total_cents, 0);
+    const discountCents = order.discount_amount_cents ?? 0;
+    const totalCents = Math.max(0, itemsSubtotalCents + shippingCost - discountCents);
 
     return (
         <Card className="rounded-2xl">
@@ -67,7 +69,7 @@ export function OrderSummary({ order, items, shippingCost = 0 }: OrderSummaryPro
                 <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Subtotal</span>
-                        <span>{formatMoney(subtotal)}</span>
+                        <span>{formatMoney(itemsSubtotalCents)}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -77,12 +79,12 @@ export function OrderSummary({ order, items, shippingCost = 0 }: OrderSummaryPro
                         </span>
                     </div>
 
-                    {order.discount_amount_cents > 0 && (
+                    {discountCents > 0 && (
                         <div className="flex items-center justify-between text-primary">
                             <span>
                                 Descuento {order.coupon_code && `(${order.coupon_code})`}
                             </span>
-                            <span>-{formatMoney(order.discount_amount_cents)}</span>
+                            <span>-{formatMoney(discountCents)}</span>
                         </div>
                     )}
 
@@ -90,7 +92,7 @@ export function OrderSummary({ order, items, shippingCost = 0 }: OrderSummaryPro
 
                     <div className="flex items-center justify-between text-base font-semibold">
                         <span>Total</span>
-                        <span>{formatMoney(order.total_cents)}</span>
+                        <span>{formatMoney(totalCents)}</span>
                     </div>
                 </div>
             </CardContent>

@@ -28,7 +28,7 @@ export default function EnviosPage() {
               <CardDescription>Aplican solo para envio a domicilio.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>Envio estandar: $150.00 MXN si el subtotal es menor a $2,000 MXN.</p>
+              <p>Envio estandar: $150.00 MXN por envio a domicilio.</p>
               <p>Pick up disponible sin costo adicional.</p>
             </CardContent>
           </Card>

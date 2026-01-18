@@ -128,9 +128,10 @@ function FailureContent() {
     }
 
     const { order, items } = orderData;
-
-    const subtotal = items.reduce((sum, item) => sum + item.line_total_cents, 0);
-    const shippingCost = subtotal >= 200000 ? 0 : 1500;
+    const isPickup = order.delivery_method
+        ? order.delivery_method === "pickup"
+        : !order.shipping_address_id;
+    const shippingCost = isPickup ? 0 : 15000;
 
     // Determinar el mensaje de error según el status_detail
     let errorMessage = "El pago no pudo ser procesado.";
