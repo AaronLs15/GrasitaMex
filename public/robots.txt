@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /login
+Disallow: /customer/
+Disallow: /auth/
+Disallow: /api/
+
+Sitemap: https://www.grasitamex.com/sitemap.xml
