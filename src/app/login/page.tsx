@@ -6,14 +6,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/client'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { toast } from 'sonner'
 import DarkVeil from '@/components/DarkVeil'
 import Link from 'next/link'
-import { ArrowLeft, MailCheck, KeyRound } from 'lucide-react'
+import { ArrowLeft, MailCheck, Eye, EyeOff } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Correo inválido'),
@@ -40,6 +40,9 @@ export default function LoginPage() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [recoverySuccess, setRecoverySuccess] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false)
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -91,7 +94,7 @@ export default function LoginPage() {
 
   async function onRegister(values: z.infer<typeof registerSchema>) {
     const supa = supabaseBrowser()
-    const { data, error } = await supa.auth.signUp({
+    const { error } = await supa.auth.signUp({
       email: values.registerEmail,
       password: values.registerPassword,
       options: {
@@ -129,6 +132,9 @@ export default function LoginPage() {
     setIsRecoveryMode(false)
     setRegistrationSuccess(false)
     setRecoverySuccess(false)
+    setShowLoginPassword(false)
+    setShowRegisterPassword(false)
+    setShowRegisterConfirmPassword(false)
     loginForm.reset()
     registerForm.reset()
     recoveryForm.reset()
@@ -261,6 +267,13 @@ export default function LoginPage() {
                   ? 'Crear Cuenta'
                   : 'Iniciar Sesión'}
             </CardTitle>
+            <CardDescription className="text-center">
+              {isRecoveryMode
+                ? 'Escribe tu correo y te enviaremos un enlace para restablecer tu contraseña.'
+                : isRegisterMode
+                  ? 'Crea tu cuenta para administrar pedidos, direcciones y compras futuras.'
+                  : 'Ingresa con tu correo y contraseña para continuar.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isRecoveryMode ? (
@@ -275,7 +288,7 @@ export default function LoginPage() {
                         <FormLabel>Correo</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="tu@correo.com"
+                            placeholder="tu.correo@ejemplo.com"
                             type="email"
                             autoComplete="email"
                             {...field}
@@ -310,7 +323,7 @@ export default function LoginPage() {
                         <FormLabel>Correo</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="tu@correo.com"
+                            placeholder="tu.correo@ejemplo.com"
                             type="email"
                             autoComplete="username"
                             {...field}
@@ -327,11 +340,28 @@ export default function LoginPage() {
                       <FormItem>
                         <FormLabel>Contraseña</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            autoComplete="current-password"
-                            {...field}
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showLoginPassword ? 'text' : 'password'}
+                              autoComplete="current-password"
+                              placeholder="Tu contraseña"
+                              className="pr-10"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowLoginPassword((prev) => !prev)}
+                              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+                              aria-label={showLoginPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                              aria-pressed={showLoginPassword}
+                            >
+                              {showLoginPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </FormControl>
                         <div className="text-[10px] text-muted-foreground mt-1">
                           Mínimo 6 caracteres.
@@ -367,7 +397,7 @@ export default function LoginPage() {
                         <FormLabel>Correo</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="tu@correo.com"
+                            placeholder="tu.correo@ejemplo.com"
                             type="email"
                             autoComplete="username"
                             {...field}
@@ -384,12 +414,32 @@ export default function LoginPage() {
                       <FormItem>
                         <FormLabel>Contraseña</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            autoComplete="new-password"
-                            {...field}
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showRegisterPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              placeholder="Crea una contraseña segura"
+                              className="pr-10"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowRegisterPassword((prev) => !prev)}
+                              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+                              aria-label={showRegisterPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                              aria-pressed={showRegisterPassword}
+                            >
+                              {showRegisterPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </FormControl>
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          Usa al menos 6 caracteres.
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -401,11 +451,28 @@ export default function LoginPage() {
                       <FormItem>
                         <FormLabel>Confirmar contraseña</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            autoComplete="new-password"
-                            {...field}
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showRegisterConfirmPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              placeholder="Repite tu contraseña"
+                              className="pr-10"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowRegisterConfirmPassword((prev) => !prev)}
+                              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+                              aria-label={showRegisterConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                              aria-pressed={showRegisterConfirmPassword}
+                            >
+                              {showRegisterConfirmPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -3,327 +3,171 @@ import DashboardCharts from "./dashboard-charts";
 import RecentSales from "./recent-sales";
 import OrderManager from "./order-manager";
 
-type OrderRow = {
-  id: string;
-  created_at: string;
-  total_cents: number | null;
-  status: string;
+type DashboardPoint = {
+  date: string;
+  views: number;
+  orders: number;
+  customers: number;
+  sales: number;
+  earnings: number;
 };
 
-type OrderItemRow = {
-  order_id: string;
-  product_id: number;
-  quantity: number | null;
-  unit_price_cents: number | null;
-  initial_price_cents: number | null;
+type CategoryEarning = {
+  category: string;
+  earnings: number;
 };
 
-type ProductCategoryRow = {
-  product_id: number;
-  category_id: number;
-};
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
 
-type CategoryRow = {
-  id: number;
-  name: string;
-  kind: string;
-};
+function asRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizePoint(value: unknown): DashboardPoint {
+  const item = asRecord(value);
+  return {
+    date: typeof item.date === "string" ? item.date : "",
+    views: toNumber(item.views),
+    orders: toNumber(item.orders),
+    customers: toNumber(item.customers),
+    sales: toNumber(item.sales),
+    earnings: toNumber(item.earnings),
+  };
+}
+
+function normalizeCategory(value: unknown): CategoryEarning {
+  const item = asRecord(value);
+  return {
+    category: typeof item.category === "string" ? item.category : "Sin categoría",
+    earnings: toNumber(item.earnings),
+  };
+}
+
+function parseDateSafe(raw: string): Date | null {
+  if (!raw) return null;
+
+  const asDay = new Date(`${raw}T00:00:00`);
+  if (!Number.isNaN(asDay.getTime())) return asDay;
+
+  const asMonth = new Date(`${raw}-01T00:00:00`);
+  if (!Number.isNaN(asMonth.getTime())) return asMonth;
+
+  return null;
+}
+
+function formatWeeklyLabel(raw: string): string {
+  const date = parseDateSafe(raw);
+  return date
+    ? date.toLocaleDateString("es-MX", { weekday: "short" })
+    : raw;
+}
+
+function formatMonthlyLabel(raw: string): string {
+  const date = parseDateSafe(raw);
+  return date
+    ? date.toLocaleDateString("es-MX", { day: "numeric", month: "short" })
+    : raw;
+}
+
+function formatYearlyLabel(raw: string): string {
+  const date = parseDateSafe(raw);
+  return date
+    ? date.toLocaleDateString("es-MX", { month: "short", year: "2-digit" })
+    : raw;
+}
 
 export default async function AdminHome() {
   const supa = await supabaseServer();
 
-  // Fetch data in parallel
   const [
-    { count: viewsCount, data: views },
-    { count: ordersCount, data: ordersRaw },
-    { count: customersCount, data: customers },
+    { data: snapshotData, error: snapshotError },
     { data: recentOrders },
     { data: pendingOrders },
   ] = await Promise.all([
-    supa.from("page_views").select("created_at", { count: "exact" }),
+    supa.rpc("get_admin_dashboard_snapshot"),
     supa
       .from("orders")
-      .select("id, created_at, total_cents, status") // Added total_cents and status
-      .in("status", ["paid", "processing", "shipped", "delivered"]),
-    supa
-      .from("profiles")
-      .select("created_at", { count: "exact" })
-      .eq("role", "customer"),
-    // Recent sales for the sidebar
-    supa
-      .from("orders")
-      .select("*, profiles(email, display_name)")
+      .select("*, profiles(email, display_name), addresses:shipping_address_id(full_name)")
       .order("created_at", { ascending: false })
       .limit(5),
-    // Pending orders for the manager
     supa
       .from("orders")
-      .select("*, profiles(email)")
+      .select("*, profiles(email), addresses:shipping_address_id(full_name)")
       .in("status", ["paid", "processing", "shipped"])
       .order("created_at", { ascending: true })
       .limit(10),
   ]);
 
-  const orders = (ordersRaw ?? []) as OrderRow[];
-  const orderIds = orders.map((order) => order.id).filter(Boolean);
-  let orderItems: OrderItemRow[] = [];
-
-  if (orderIds.length > 0) {
-    const { data: items } = await supa
-      .from("order_items")
-      .select("order_id, product_id, quantity, unit_price_cents, initial_price_cents")
-      .in("order_id", orderIds);
-
-    orderItems = (items ?? []) as OrderItemRow[];
+  if (snapshotError) {
+    console.error("Error fetching dashboard snapshot:", snapshotError);
   }
 
-  const productIds = Array.from(
-    new Set(orderItems.map((item) => item.product_id).filter(Boolean))
+  const snapshotValue = Array.isArray(snapshotData)
+    ? snapshotData[0]
+    : snapshotData;
+  const snapshot = asRecord(snapshotValue);
+  const totalsRaw = asRecord(snapshot.totals);
+
+  const totalSales = toNumber(totalsRaw.total_sales_cents) / 100;
+  const totalNetEarnings = toNumber(totalsRaw.total_net_earnings_cents) / 100;
+  const deliveredCount = toNumber(totalsRaw.delivered_count);
+  const customersCount = toNumber(totalsRaw.customers);
+  const viewsCount = toNumber(totalsRaw.views);
+
+  const weeklyData = asArray(snapshot.weekly)
+    .map(normalizePoint)
+    .map((point) => ({ ...point, date: formatWeeklyLabel(point.date) }));
+
+  const monthlyData = asArray(snapshot.monthly)
+    .map(normalizePoint)
+    .map((point) => ({ ...point, date: formatMonthlyLabel(point.date) }));
+
+  const yearlyData = asArray(snapshot.yearly)
+    .map(normalizePoint)
+    .map((point) => ({ ...point, date: formatYearlyLabel(point.date) }));
+
+  const categoryEarnings = asArray(snapshot.category_earnings).map(
+    normalizeCategory
   );
-
-  let productCategoryRows: ProductCategoryRow[] = [];
-  let categoriesById = new Map<number, { name: string; kind: string }>();
-
-  if (productIds.length > 0) {
-    const { data: categoryRows } = await supa
-      .from("product_categories")
-      .select("product_id, category_id")
-      .in("product_id", productIds);
-
-    productCategoryRows = (categoryRows ?? []) as ProductCategoryRow[];
-
-    const categoryIds = Array.from(
-      new Set(productCategoryRows.map((row) => row.category_id).filter(Boolean))
-    );
-
-    if (categoryIds.length > 0) {
-      const { data: categoriesData } = await supa
-        .from("categories")
-        .select("id, name, kind")
-        .in("id", categoryIds);
-
-      categoriesById = new Map(
-        ((categoriesData ?? []) as CategoryRow[]).map((cat) => [cat.id, { name: cat.name, kind: cat.kind }])
-      );
-    }
-  }
-
-  // Calculate Total Sales (from all paid/processing/shipped/delivered)
-  const totalSalesCents = orders?.reduce((acc, order) => acc + (order.total_cents || 0), 0) || 0;
-  const totalSales = totalSalesCents / 100;
-
-  // Calculate Delivered Orders Count
-  const deliveredCount = orders?.filter(o => o.status === 'delivered').length || 0;
-
-  const orderItemsByOrderId = new Map<string, OrderItemRow[]>();
-  const orderGrossEarningsCents = new Map<string, number>();
-  const orderItemTotalsCents = new Map<string, number>();
-
-  for (const item of orderItems) {
-    const orderId = item.order_id as string;
-    const unitPrice = item.unit_price_cents || 0;
-    const initialPrice = item.initial_price_cents || 0;
-    const quantity = item.quantity || 0;
-    const lineTotal = unitPrice * quantity;
-    const gross = (unitPrice - initialPrice) * quantity;
-
-    if (!orderItemsByOrderId.has(orderId)) orderItemsByOrderId.set(orderId, []);
-    orderItemsByOrderId.get(orderId)!.push(item);
-
-    orderGrossEarningsCents.set(orderId, (orderGrossEarningsCents.get(orderId) || 0) + gross);
-    orderItemTotalsCents.set(orderId, (orderItemTotalsCents.get(orderId) || 0) + lineTotal);
-  }
-
-  const feeForOrderCents = (totalCents: number) => Math.round(totalCents * 0.0349 + 400);
-  const orderNetEarningsCents = new Map<string, number>();
-
-  for (const order of orders ?? []) {
-    const gross = orderGrossEarningsCents.get(order.id) || 0;
-    const fee = feeForOrderCents(order.total_cents || 0);
-    orderNetEarningsCents.set(order.id, gross - fee);
-  }
-
-  const totalNetEarningsCents =
-    Array.from(orderNetEarningsCents.values()).reduce((acc, value) => acc + value, 0) || 0;
-  const totalNetEarnings = totalNetEarningsCents / 100;
-
-  // Generate date ranges
-  const now = new Date();
-  const getDates = (days: number) => {
-    const dates = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(now.getDate() - i);
-      dates.push(d);
-    }
-    return dates;
-  };
-
-  const weekDates = getDates(7);
-  const monthDates = getDates(30);
-  const yearDates = getDates(365); // Simplified
-
-  // Helper to aggregate data
-  const processData = (dates: Date[]) => {
-    return dates.map((d) => {
-      let dateStr = "";
-      let dayStart: Date, dayEnd: Date;
-
-      // Simple logic: if array length is 7 or 30, treat as days. If 365 (actually we used 12 months in prev code but let's stick to days for consistency or fix logic)
-      // The previous code had specific logic for year (months). Let's replicate that structure properly.
-      // Actually, let's just use the day logic for week/month and month logic for year.
-
-      const isYear = dates.length === 12; // We'll fix the year generation below to match this expectation if needed, or just use day logic for all if simpler. 
-      // But wait, the previous code generated 365 days for yearDates but then mapped 'months' array.
-      // Let's stick to the previous logic but add 'sales'.
-
-      // Re-implementing the mapping logic cleanly:
-      return { date: "", views: 0, orders: 0, customers: 0, sales: 0 }; // Placeholder, see below
-    });
-  }
-
-  // Weekly Data (Last 7 days)
-  const weeklyData = weekDates.map((d) => {
-    const dateStr = d.toLocaleDateString("es-MX", { weekday: "short" });
-    const dayStart = new Date(d.setHours(0, 0, 0, 0));
-    const dayEnd = new Date(d.setHours(23, 59, 59, 999));
-
-    const v = views?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd).length || 0;
-    const dayOrders = orders?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd) || [];
-
-    // Orders count = Only delivered
-    const o = dayOrders.filter(x => x.status === 'delivered').length;
-    // Sales = All paid+
-    const s = dayOrders.reduce((acc, ord) => acc + (ord.total_cents || 0), 0) / 100;
-    const e = dayOrders.reduce(
-      (acc, ord) => acc + (orderNetEarningsCents.get(ord.id) || 0),
-      0
-    ) / 100;
-
-    const c = customers?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd).length || 0;
-
-    return { date: dateStr, views: v, orders: o, customers: c, sales: s, earnings: e };
-  });
-
-  // Monthly Data (Last 30 days)
-  const monthlyData = monthDates.map((d) => {
-    const dateStr = d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
-    const dayStart = new Date(d.setHours(0, 0, 0, 0));
-    const dayEnd = new Date(d.setHours(23, 59, 59, 999));
-
-    const v = views?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd).length || 0;
-    const dayOrders = orders?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd) || [];
-
-    const o = dayOrders.filter(x => x.status === 'delivered').length;
-    const s = dayOrders.reduce((acc, ord) => acc + (ord.total_cents || 0), 0) / 100;
-    const e = dayOrders.reduce(
-      (acc, ord) => acc + (orderNetEarningsCents.get(ord.id) || 0),
-      0
-    ) / 100;
-
-    const c = customers?.filter(x => new Date(x.created_at) >= dayStart && new Date(x.created_at) <= dayEnd).length || 0;
-
-    return { date: dateStr, views: v, orders: o, customers: c, sales: s, earnings: e };
-  });
-
-  // Yearly Data (Last 12 months)
-  const months = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(now.getMonth() - i);
-    months.push(d);
-  }
-
-  const yearlyData = months.map((d) => {
-    const dateStr = d.toLocaleDateString("es-MX", { month: "short", year: "2-digit" });
-    const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
-    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-
-    const v = views?.filter(x => new Date(x.created_at) >= monthStart && new Date(x.created_at) <= monthEnd).length || 0;
-    const monthOrders = orders?.filter(x => new Date(x.created_at) >= monthStart && new Date(x.created_at) <= monthEnd) || [];
-
-    const o = monthOrders.filter(x => x.status === 'delivered').length;
-    const s = monthOrders.reduce((acc, ord) => acc + (ord.total_cents || 0), 0) / 100;
-    const e = monthOrders.reduce(
-      (acc, ord) => acc + (orderNetEarningsCents.get(ord.id) || 0),
-      0
-    ) / 100;
-
-    const c = customers?.filter(x => new Date(x.created_at) >= monthStart && new Date(x.created_at) <= monthEnd).length || 0;
-
-    return { date: dateStr, views: v, orders: o, customers: c, sales: s, earnings: e };
-  });
-
-  const productCategoriesByProductId = new Map<number, string[]>();
-
-  for (const row of productCategoryRows) {
-    const categoryInfo = categoriesById.get(row.category_id);
-    if (!categoryInfo || categoryInfo.kind !== "general") continue;
-
-    if (!productCategoriesByProductId.has(row.product_id)) {
-      productCategoriesByProductId.set(row.product_id, []);
-    }
-
-    productCategoriesByProductId.get(row.product_id)!.push(categoryInfo.name);
-  }
-
-  const categoryEarningsCents = new Map<string, number>();
-
-  for (const order of orders ?? []) {
-    const orderId = order.id as string;
-    const items = orderItemsByOrderId.get(orderId) || [];
-    const totalItemCents = orderItemTotalsCents.get(orderId) || 0;
-    const feeCents = feeForOrderCents(order.total_cents || 0);
-
-    for (const item of items) {
-      const unitPrice = item.unit_price_cents || 0;
-      const initialPrice = item.initial_price_cents || 0;
-      const quantity = item.quantity || 0;
-      const lineTotal = unitPrice * quantity;
-      const gross = (unitPrice - initialPrice) * quantity;
-      const feeShare =
-        totalItemCents > 0 ? Math.round((feeCents * lineTotal) / totalItemCents) : 0;
-      const net = gross - feeShare;
-
-      const categoriesForProduct = productCategoriesByProductId.get(item.product_id) || [
-        "Sin categoría",
-      ];
-
-      for (const category of categoriesForProduct) {
-        categoryEarningsCents.set(
-          category,
-          (categoryEarningsCents.get(category) || 0) + net
-        );
-      }
-    }
-  }
-
-  const categoryEarnings = Array.from(categoryEarningsCents.entries())
-    .map(([category, cents]) => ({ category, earnings: cents / 100 }))
-    .sort((a, b) => b.earnings - a.earnings)
-    .slice(0, 8);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Panel de Administración</h1>
-        <p className="text-muted-foreground">
-          Resumen de actividad y rendimiento.
-        </p>
+        <p className="text-muted-foreground">Resumen de actividad y rendimiento.</p>
       </div>
 
-      {/* Top Stats Cards */}
       <div className="grid gap-4 md:grid-cols-5">
         <div className="p-6 border rounded-lg shadow-sm bg-card">
           <h3 className="text-sm font-medium text-muted-foreground">Ventas Totales</h3>
           <p className="text-2xl font-bold">
-            {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(totalSales)}
+            {new Intl.NumberFormat("es-MX", {
+              style: "currency",
+              currency: "MXN",
+            }).format(totalSales)}
           </p>
         </div>
         <div className="p-6 border rounded-lg shadow-sm bg-card">
-          <h3 className="text-sm font-medium text-muted-foreground">Earnings Netos (MP)</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">Earnings Netos (Online + POS)</h3>
           <p className="text-2xl font-bold">
-            {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(totalNetEarnings)}
+            {new Intl.NumberFormat("es-MX", {
+              style: "currency",
+              currency: "MXN",
+            }).format(totalNetEarnings)}
           </p>
         </div>
         <div className="p-6 border rounded-lg shadow-sm bg-card">
@@ -332,16 +176,15 @@ export default async function AdminHome() {
         </div>
         <div className="p-6 border rounded-lg shadow-sm bg-card">
           <h3 className="text-sm font-medium text-muted-foreground">Clientes Totales</h3>
-          <p className="text-2xl font-bold">{customersCount || 0}</p>
+          <p className="text-2xl font-bold">{customersCount}</p>
         </div>
         <div className="p-6 border rounded-lg shadow-sm bg-card">
           <h3 className="text-sm font-medium text-muted-foreground">Vistas Totales</h3>
-          <p className="text-2xl font-bold">{viewsCount || 0}</p>
+          <p className="text-2xl font-bold">{viewsCount}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
-        {/* Main Charts Area (Left) */}
         <div className="lg:col-span-4 space-y-6">
           <DashboardCharts
             weeklyData={weeklyData}
@@ -352,7 +195,6 @@ export default async function AdminHome() {
           <OrderManager initialOrders={pendingOrders || []} />
         </div>
 
-        {/* Sidebar (Right) */}
         <div className="lg:col-span-3 space-y-6">
           <RecentSales initialSales={recentOrders || []} />
         </div>

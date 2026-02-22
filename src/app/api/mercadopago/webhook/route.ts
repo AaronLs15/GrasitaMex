@@ -12,10 +12,45 @@ import { sendOrderConfirmationEmail, sendOrderNotificationEmail } from '@/lib/em
 
 export const dynamic = 'force-dynamic';
 
+type WebhookPayload = {
+  type?: string;
+  action?: string;
+  id?: string | number;
+  data?: {
+    id?: string | number;
+  };
+};
+
+function parseWebhookPayload(raw: string): WebhookPayload {
+  const parsed: unknown = JSON.parse(raw || '{}');
+  if (!parsed || typeof parsed !== 'object') return {};
+  return parsed as WebhookPayload;
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null;
+  const status = (error as { status?: unknown }).status;
+  if (typeof status === 'number') return status;
+  if (typeof status === 'string') {
+    const parsed = Number(status);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : '';
+  }
+  return '';
+}
+
 
 // Verifica la firma del webhook de MercadoPago
 
-async function verifySignature(req: NextRequest, raw: string, payload: any): Promise<boolean> {
+async function verifySignature(req: NextRequest, payload: WebhookPayload): Promise<boolean> {
   const header = req.headers.get('x-signature');
   const requestId = req.headers.get('x-request-id');
   const secret = process.env.MP_WEBHOOK_SECRET;
@@ -84,11 +119,11 @@ async function verifySignature(req: NextRequest, raw: string, payload: any): Pro
 
 export async function POST(req: NextRequest) {
   const raw = await req.text();
-  let payload: any;
+  let payload: WebhookPayload;
 
   try {
-    payload = JSON.parse(raw || '{}');
-  } catch (error) {
+    payload = parseWebhookPayload(raw);
+  } catch {
     console.error('[Webhook] Invalid JSON payload');
     return NextResponse.json({ ok: true }); // Return 200 to avoid retries
   }
@@ -103,7 +138,7 @@ export async function POST(req: NextRequest) {
 
   // Verificar firma (opcional en desarrollo, obligatorio en producción)
   if (process.env.NODE_ENV === 'production') {
-    const isValid = await verifySignature(req, raw, payload);
+    const isValid = await verifySignature(req, payload);
     if (!isValid) {
       console.error('[Webhook] Signature verification failed - PROCEEDING FOR DEBUGGING');
       // return new NextResponse('Invalid signature', { status: 401 }); // COMENTADO PARA DEBUG
@@ -145,6 +180,10 @@ export async function POST(req: NextRequest) {
       amount: payment.transaction_amount,
     });
 
+    const transactionData = payment.point_of_interaction?.transaction_data as {
+      preference_id?: string;
+    } | undefined;
+
     const supa = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -159,12 +198,11 @@ export async function POST(req: NextRequest) {
         status_detail: payment.status_detail ?? null,
         amount_cents: pesosToCents(payment.transaction_amount ?? 0),
         currency: payment.currency_id ?? 'MXN',
-        preference_id:
-          (payment.point_of_interaction?.transaction_data as any)?.preference_id ?? null,
+        preference_id: transactionData?.preference_id ?? null,
         payment_id: payment.id?.toString(),
         merchant_order_id: payment.order?.id ? String(payment.order.id) : null,
         external_reference: payment.external_reference ?? null,
-        raw: payment as any,
+        raw: payment as unknown as Record<string, unknown>,
       },
       { onConflict: 'payment_id' }
     );
@@ -272,8 +310,13 @@ export async function POST(req: NextRequest) {
           .eq('id', updatedOrder.id)
           .single();
 
-        if (fullOrder && fullOrder.profiles?.email) {
-          console.log('[Webhook] Sending confirmation email to:', fullOrder.profiles.email);
+        const profileEmail = Array.isArray(fullOrder?.profiles)
+          ? fullOrder?.profiles[0]?.email
+          : fullOrder?.profiles?.email;
+        const recipientEmail = profileEmail || fullOrder?.guest_email || null;
+
+        if (fullOrder && recipientEmail) {
+          console.log('[Webhook] Sending confirmation email to:', recipientEmail);
           try {
             await sendOrderConfirmationEmail(fullOrder, fullOrder.order_items || []);
             await sendOrderNotificationEmail(fullOrder, fullOrder.order_items || []);
@@ -292,11 +335,13 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Webhook] Error processing webhook:', error);
+    const errorMessage = getErrorMessage(error);
+    const errorStatus = getErrorStatus(error);
 
     // Si es un error de "payment not found", retornar 200 para evitar retries
-    if (error?.message?.includes('not found') || error?.status === 404) {
+    if (errorMessage.includes('not found') || errorStatus === 404) {
       console.log('[Webhook] Payment not found, skipping');
       return NextResponse.json({
         ok: true,

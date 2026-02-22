@@ -15,59 +15,31 @@ import {
 } from "@/components/ui/card";
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { XCircle, RefreshCcw, Loader2, AlertTriangle } from "lucide-react";
-import { supabaseBrowser } from "@/lib/supabase/client";
-
-interface OrderData {
-    order: any;
-    items: any[];
-}
+import {
+    fetchPublicOrderSummary,
+    resolvePublicOrderLookup,
+    type PublicOrderData,
+} from "@/lib/checkout/public-order";
 
 function FailureContent() {
     const searchParams = useSearchParams();
-    const [orderData, setOrderData] = useState<OrderData | null>(null);
+    const [orderData, setOrderData] = useState<PublicOrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchOrder = async () => {
-            const externalRef =
-                searchParams.get("external_reference") ||
-                searchParams.get("preference_id");
+            const lookup = resolvePublicOrderLookup(searchParams);
+            const { data, error: fetchError } = await fetchPublicOrderSummary(lookup);
 
-            if (!externalRef) {
-                setError("No se encontró la referencia de la orden");
+            if (fetchError || !data) {
+                setError(fetchError || "No se pudo verificar el pago");
                 setLoading(false);
                 return;
             }
 
-            try {
-                const supa = supabaseBrowser();
-
-                let query = supa.from("orders").select(`*, order_items(*)`);
-
-                let { data: order } = await query.eq("id", externalRef).single();
-
-                if (!order) {
-                    const result = await query.eq("preference_id", externalRef).single();
-                    order = result.data;
-                }
-
-                if (!order) {
-                    setError("Orden no encontrada");
-                    setLoading(false);
-                    return;
-                }
-
-                setOrderData({
-                    order,
-                    items: order.order_items || [],
-                });
-            } catch (err) {
-                console.error("Error fetching order:", err);
-                setError("Error al cargar los detalles de la orden");
-            } finally {
-                setLoading(false);
-            }
+            setOrderData(data);
+            setLoading(false);
         };
 
         fetchOrder();
@@ -134,7 +106,7 @@ function FailureContent() {
     const shippingCost = isPickup ? 0 : 15000;
 
     // Determinar el mensaje de error según el status_detail
-    let errorMessage = "El pago no pudo ser procesado.";
+    const errorMessage = "El pago no pudo ser procesado.";
     let errorDetail = "Por favor, intenta nuevamente o usa otro método de pago.";
 
     if (order.payment_status === "rejected") {

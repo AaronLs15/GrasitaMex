@@ -16,7 +16,7 @@ export async function notifyOrderStatus(
     try {
         const { data: order, error } = await supa
             .from('orders')
-            .select('delivery_method, external_reference, id, total_cents, created_at, shipping_address_id, profiles:user_id(email, display_name)')
+            .select('delivery_method, external_reference, id, total_cents, created_at, shipping_address_id, guest_email, profiles:user_id(email, display_name), addresses:shipping_address_id(full_name)')
             .eq('id', orderId)
             .single();
 
@@ -26,6 +26,10 @@ export async function notifyOrderStatus(
         const normalizedProfiles = rawProfile && typeof rawProfile.email === 'string'
             ? { email: rawProfile.email, display_name: rawProfile.display_name }
             : undefined;
+        const rawAddress = Array.isArray(order.addresses) ? order.addresses[0] : order.addresses;
+        const normalizedAddress = rawAddress && typeof rawAddress.full_name === 'string'
+            ? { full_name: rawAddress.full_name }
+            : undefined;
 
         const normalizedOrder: Order = {
             id: order.id,
@@ -34,7 +38,9 @@ export async function notifyOrderStatus(
             created_at: order.created_at,
             shipping_address_id: order.shipping_address_id ?? undefined,
             delivery_method: order.delivery_method,
+            guest_email: order.guest_email ?? null,
             profiles: normalizedProfiles,
+            addresses: normalizedAddress,
         };
 
         if (status === 'shipped') {

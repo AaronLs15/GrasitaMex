@@ -48,8 +48,9 @@ export type Order = {
     } | null;
     profiles?: {
         display_name?: string;
-        email: string;
+        email?: string;
     };
+    guest_email?: string | null;
     created_at: string;
     // Add other fields as needed
 };
@@ -57,6 +58,26 @@ export type Order = {
 // Helper to format currency
 function fMoney(cents: number) {
     return formatMoney(cents);
+}
+
+function getCustomerEmail(order: Order): string | null {
+    const profileEmail = order.profiles?.email?.trim();
+    if (profileEmail) return profileEmail;
+
+    const guestEmail = order.guest_email?.trim();
+    if (guestEmail) return guestEmail;
+
+    return null;
+}
+
+function getCustomerName(order: Order): string {
+    const profileName = order.profiles?.display_name?.trim();
+    if (profileName) return profileName;
+
+    const shippingName = order.addresses?.full_name?.trim();
+    if (shippingName) return shippingName;
+
+    return 'Cliente';
 }
 
 // Basic email layout wrapper
@@ -148,7 +169,9 @@ export async function testemail(to: string) {
 }
 
 export async function sendOrderConfirmationEmail(order: Order, items: OrderLineItem[]) {
-    if (!order.profiles?.email) return;
+    const recipientEmail = getCustomerEmail(order);
+    if (!recipientEmail) return;
+    const customerName = getCustomerName(order);
 
     const orderId = order.external_reference || order.id.slice(0, 8);
     const isPickup = order.delivery_method
@@ -215,7 +238,7 @@ export async function sendOrderConfirmationEmail(order: Order, items: OrderLineI
     const pickupNote = isPickup ? getPickupHtml() : '';
 
     const html = wrapHtml(`
-        <h2>¡Gracias por tu compra, ${order.profiles.display_name || 'Cliente'}!</h2>
+        <h2>¡Gracias por tu compra, ${customerName}!</h2>
         <p>Hemos recibido tu pedido correctamente. Aquí están los detalles:</p>
         
         <p><strong>Pedido:</strong> #${orderId}</p>
@@ -252,7 +275,7 @@ export async function sendOrderConfirmationEmail(order: Order, items: OrderLineI
 
     await transporter.sendMail({
         from: `"GrasitaMex Ventas" <${process.env.SMTP_USER}>`,
-        to: order.profiles.email,
+        to: recipientEmail,
         subject: `${isPickup ? 'Confirmacion de pedido (Pick up)' : 'Confirmacion de pedido'} #${orderId} - GrasitaMex`,
         html,
     });
@@ -335,8 +358,8 @@ export async function sendOrderNotificationEmail(order: Order, items: OrderLineI
         <h2>Nuevo pedido recibido</h2>
         <p><strong>Pedido:</strong> #${orderId}</p>
         <p><strong>Fecha:</strong> ${formatInMexicoCity(order.created_at, "d 'de' MMMM 'de' yyyy")}</p>
-        <p><strong>Cliente:</strong> ${order.profiles?.display_name || 'Cliente'}</p>
-        <p><strong>Email:</strong> ${order.profiles?.email || '-'}</p>
+        <p><strong>Cliente:</strong> ${getCustomerName(order)}</p>
+        <p><strong>Email:</strong> ${getCustomerEmail(order) || '-'}</p>
         ${deliveryHtml}
 
         <table>
@@ -371,10 +394,11 @@ export async function sendOrderNotificationEmail(order: Order, items: OrderLineI
 }
 
 export async function sendOrderStatusEmail(order: Order, status: string) {
-    if (!order.profiles?.email) return;
+    const recipientEmail = getCustomerEmail(order);
+    if (!recipientEmail) return;
 
     const orderId = order.external_reference || order.id.slice(0, 8);
-    const displayName = order.profiles.display_name || 'Cliente';
+    const displayName = getCustomerName(order);
 
     const statusCopy: Record<string, { title: string; body: string }> = {
         processing: {
@@ -407,39 +431,41 @@ export async function sendOrderStatusEmail(order: Order, status: string) {
 
     await transporter.sendMail({
         from: `"GrasitaMex Ventas" <${process.env.SMTP_USER}>`,
-        to: order.profiles.email,
+        to: recipientEmail,
         subject: `${copy.title} #${orderId} - GrasitaMex`,
         html,
     });
 }
 
 export async function sendOrderPickupReadyEmail(order: Order) {
-    if (!order.profiles?.email) return;
+    const recipientEmail = getCustomerEmail(order);
+    if (!recipientEmail) return;
 
     const orderId = order.external_reference || order.id.slice(0, 8);
     const html = wrapHtml(`
         <h2>Tu pedido está listo para pick up</h2>
-        <p>Hola ${order.profiles.display_name || 'Cliente'},</p>
+        <p>Hola ${getCustomerName(order)},</p>
         <p>Tu pedido <strong>#${orderId}</strong> ya está listo para que lo recojas.</p>
         ${getPickupHtml()}
     `);
 
     await transporter.sendMail({
         from: `"GrasitaMex Ventas" <${process.env.SMTP_USER}>`,
-        to: order.profiles.email,
+        to: recipientEmail,
         subject: `Pick up listo #${orderId} - GrasitaMex`,
         html,
     });
 }
 
 export async function sendOrderShippedEmail(order: Order, trackingNumber?: string, sender?:string) {
-    if (!order.profiles?.email) return;
+    const recipientEmail = getCustomerEmail(order);
+    if (!recipientEmail) return;
 
     const orderId = order.external_reference || order.id.slice(0, 8);
 
     const html = wrapHtml(`
         <h2>¡Tu pedido ha sido enviado! 🚚</h2>
-        <p>Hola ${order.profiles.display_name || 'Cliente'},</p>
+        <p>Hola ${getCustomerName(order)},</p>
         <p>Nos complace informarte que tu pedido <strong>#${orderId}</strong> ya está en camino.</p>
         
         ${trackingNumber ? `<p>Número de rastreo: <strong>${trackingNumber}</strong></p>` : ''}
@@ -450,20 +476,21 @@ export async function sendOrderShippedEmail(order: Order, trackingNumber?: strin
 
     await transporter.sendMail({
         from: `"GrasitaMex Ventas" <${process.env.SMTP_USER}>`,
-        to: order.profiles.email,
+        to: recipientEmail,
         subject: `Tu pedido #${orderId} ha sido enviado - GrasitaMex`,
         html,
     });
 }
 
 export async function sendOrderDeliveredEmail(order: Order) {
-    if (!order.profiles?.email) return;
+    const recipientEmail = getCustomerEmail(order);
+    if (!recipientEmail) return;
 
     const orderId = order.external_reference || order.id.slice(0, 8);
 
     const html = wrapHtml(`
         <h2>¡Pedido Entregado! 🎉</h2>
-        <p>Hola ${order.profiles.display_name || 'Cliente'},</p>
+        <p>Hola ${getCustomerName(order)},</p>
         <p>Tu pedido <strong>#${orderId}</strong> ha sido marcado como entregado.</p>
         <p>Esperamos que disfrutes tu compra. ¡Gracias por confiar en GrasitaMex!</p>
         
@@ -474,7 +501,7 @@ export async function sendOrderDeliveredEmail(order: Order) {
 
     await transporter.sendMail({
         from: `"GrasitaMex Ventas" <${process.env.SMTP_USER}>`,
-        to: order.profiles.email,
+        to: recipientEmail,
         subject: `Tu pedido #${orderId} ha sido entregado - GrasitaMex`,
         html,
     });

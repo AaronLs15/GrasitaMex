@@ -15,52 +15,16 @@ import {
 } from "@/components/ui/card";
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { CheckCircle2, Package, Loader2 } from "lucide-react";
-import { supabaseBrowser } from "@/lib/supabase/client";
 import { useCart } from "@/context/cart-context";
-
-type OrderSummaryItem = {
-    id: number;
-    title: string;
-    size_label: string;
-    quantity: number;
-    unit_price_cents: number;
-    line_total_cents: number;
-};
-
-type OrderAddress = {
-    full_name?: string | null;
-    phone?: string | null;
-    line1?: string | null;
-    line2?: string | null;
-    city?: string | null;
-    state?: string | null;
-    zip?: string | null;
-    reference?: string | null;
-};
-
-type SuccessOrder = {
-    id: string;
-    external_reference?: string | null;
-    status: string;
-    total_cents: number;
-    currency: string;
-    discount_amount_cents: number;
-    coupon_code: string | null;
-    created_at: string;
-    shipping_address_id?: number | null;
-    delivery_method?: "shipment" | "pickup";
-    order_items?: OrderSummaryItem[];
-};
-
-interface OrderData {
-    order: SuccessOrder;
-    items: OrderSummaryItem[];
-    address: OrderAddress | null;
-}
+import {
+    fetchPublicOrderSummary,
+    resolvePublicOrderLookup,
+    type PublicOrderData,
+} from "@/lib/checkout/public-order";
 
 function SuccessContent() {
     const searchParams = useSearchParams();
-    const [orderData, setOrderData] = useState<OrderData | null>(null);
+    const [orderData, setOrderData] = useState<PublicOrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { clearCart } = useCart();
@@ -68,58 +32,17 @@ function SuccessContent() {
 
     useEffect(() => {
         const fetchOrder = async () => {
-            // MercadoPago envía external_reference en la URL
-            const externalRef =
-                searchParams.get("external_reference") ||
-                searchParams.get("preference_id");
+            const lookup = resolvePublicOrderLookup(searchParams);
+            const { data, error: fetchError } = await fetchPublicOrderSummary(lookup);
 
-            if (!externalRef) {
-                setError("No se encontró la referencia de la orden");
+            if (fetchError || !data) {
+                setError(fetchError || "No se pudo verificar el pago");
                 setLoading(false);
                 return;
             }
 
-            try {
-                const supa = supabaseBrowser();
-
-                // Buscar orden por external_reference o por preference_id
-                const query = supa
-                    .from("orders")
-                    .select(
-                        `
-            *,
-            order_items(*),
-            addresses!orders_shipping_address_id_fkey(*)
-          `
-                    );
-                // .eq("status", "paid"); // Eliminamos filtro para manejar otros estados
-
-                // Intentar primero con external_reference
-                let { data: order } = await query.eq("id", externalRef).single();
-
-                // Si no funciona, intentar con preference_id
-                if (!order) {
-                    const result = await query.eq("preference_id", externalRef).single();
-                    order = result.data;
-                }
-
-                if (!order) {
-                    setError("Orden no encontrada o aún no confirmada");
-                    setLoading(false);
-                    return;
-                }
-
-                setOrderData({
-                    order,
-                    items: order.order_items || [],
-                    address: order.addresses || null,
-                });
-            } catch (err) {
-                console.error("Error fetching order:", err);
-                setError("Error al cargar los detalles de la orden");
-            } finally {
-                setLoading(false);
-            }
+            setOrderData(data);
+            setLoading(false);
         };
 
         fetchOrder();

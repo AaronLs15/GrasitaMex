@@ -137,7 +137,7 @@ export default function DashboardCharts({
             <Card>
                 <CardHeader>
                     <CardTitle>Earnings Netos</CardTitle>
-                    <CardDescription>Después de comisión de Mercado Pago</CardDescription>
+                    <CardDescription>Online con comisión MP + POS sin comisión</CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
                     <div className="h-[300px]">

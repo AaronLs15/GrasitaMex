@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import {
     Select,
     SelectContent,
@@ -31,7 +30,7 @@ export interface Address {
 }
 
 interface AddressFormProps {
-    userId: string;
+    userId?: string | null;
     onAddressChange: (address: Address | null) => void;
 }
 
@@ -85,7 +84,8 @@ export function AddressForm({ userId, onAddressChange }: AddressFormProps) {
                 formData.zip;
 
             // NO incluir id en nuevas direcciones
-            const { id, ...addressWithoutId } = formData;
+            const addressWithoutId = { ...formData };
+            delete addressWithoutId.id;
             onAddressChange(isValid ? addressWithoutId : null);
         } else {
             // Usuario seleccionó dirección guardada
@@ -241,7 +241,7 @@ export function AddressForm({ userId, onAddressChange }: AddressFormProps) {
                 </div>
 
                 {/* Checkbox para guardar dirección */}
-                {selectedAddressId === "new" && (
+                {selectedAddressId === "new" && Boolean(userId) && (
                     <div className="flex items-center gap-2 pt-2">
                         <Checkbox
                             id="save-address"

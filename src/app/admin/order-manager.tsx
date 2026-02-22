@@ -31,9 +31,15 @@ type Order = {
     total_cents: number
     created_at: string
     delivery_method?: 'shipment' | 'pickup'
+    sold_to_name?: string | null
+    sales_channel?: 'online_mp' | 'physical_pos' | null
+    guest_email?: string | null
     profiles?: {
-        email: string
-    }
+        email?: string | null
+    } | null
+    addresses?: {
+        full_name?: string | null
+    } | null
 }
 
 const statusMap: Record<string, { label: string; color: string; next: string; action: string; icon: LucideIcon }> = {
@@ -83,7 +89,7 @@ export default function OrderManager({ initialOrders }: { initialOrders: Order[]
                     // Refresh the list (simplest way to handle inserts/updates/deletes correctly)
                     const { data } = await supa
                         .from('orders')
-                        .select('*, profiles(email)')
+                        .select('*, profiles(email), addresses:shipping_address_id(full_name)')
                         .in('status', ['paid', 'processing', 'shipped'])
                         .order('created_at', { ascending: true })
                         .limit(10)
@@ -187,6 +193,12 @@ export default function OrderManager({ initialOrders }: { initialOrders: Order[]
                         if (!config) return null
 
                         const Icon = config.icon
+                        const orderEmail =
+                            order.profiles?.email || order.guest_email || 'Sin correo';
+                        const orderName =
+                            order.sold_to_name ||
+                            order.addresses?.full_name ||
+                            (order.guest_email ? 'Cliente invitado' : 'Cliente');
 
                         return (
                             <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
@@ -199,9 +211,8 @@ export default function OrderManager({ initialOrders }: { initialOrders: Order[]
                                             {config.label}
                                         </Badge>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {order.profiles?.email}
-                                    </p>
+                                    <p className="text-sm font-medium">{orderName}</p>
+                                    <p className="text-sm text-muted-foreground">{orderEmail}</p>
                                 </div>
 
                                 <Button

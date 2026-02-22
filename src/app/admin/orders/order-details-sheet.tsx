@@ -34,6 +34,11 @@ export type OrderDetails = {
     preference_id?: string | null;
     delivery_method?: 'shipment' | 'pickup';
     shipping_address_id?: number | null;
+    sales_channel?: 'online_mp' | 'physical_pos' | null;
+    sold_to_name?: string | null;
+    sold_by_admin_id?: string | null;
+    pos_note?: string | null;
+    guest_email?: string | null;
     profiles?: { display_name?: string | null; email?: string | null };
     addresses?: {
         full_name?: string | null;
@@ -65,9 +70,19 @@ export function OrderDetailsSheet({
     const shippingAddress = order.addresses; // Relación shipping_address_id
     const items = order.order_items || [];
     const discountCents = order.discount_amount_cents ?? 0;
+    const customerName =
+        order.profiles?.display_name ||
+        order.sold_to_name ||
+        order.addresses?.full_name ||
+        "Cliente invitado";
+    const customerEmail =
+        order.profiles?.email ||
+        order.guest_email ||
+        "Sin correo";
     const isPickup = order.delivery_method
         ? order.delivery_method === 'pickup'
         : !order.shipping_address_id;
+    const isPosSale = order.sales_channel === 'physical_pos';
     const itemsSubtotalCents = items.reduce((sum, item) => sum + item.line_total_cents, 0);
     const shippingCostCents = isPickup ? 0 : 15000;
     const subtotalCents = itemsSubtotalCents + shippingCostCents;
@@ -98,8 +113,8 @@ export function OrderDetailsSheet({
                     <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-2">Cliente</h3>
                         <div className="bg-muted/40 p-3 rounded-lg text-sm">
-                            <p className="font-medium">{order.profiles?.display_name || 'Sin nombre'}</p>
-                            <p className="text-muted-foreground">{order.profiles?.email}</p>
+                            <p className="font-medium">{customerName}</p>
+                            <p className="text-muted-foreground">{customerEmail}</p>
                         </div>
                     </div>
 
@@ -203,12 +218,20 @@ export function OrderDetailsSheet({
                     <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg text-xs space-y-1">
                         <p className="font-medium text-blue-700 dark:text-blue-400">Información de Pago</p>
                         <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                            <span>Canal:</span>
+                            <span className="font-mono">{isPosSale ? 'physical_pos' : 'online_mp'}</span>
                             <span>Status MP:</span>
-                            <span className="font-mono">{order.payment_status || '-'}</span>
+                            <span className="font-mono">{isPosSale ? 'N/A (POS)' : (order.payment_status || '-')}</span>
                             <span>Payment ID:</span>
-                            <span className="font-mono">{order.payment_id || '-'}</span>
+                            <span className="font-mono">{isPosSale ? '-' : (order.payment_id || '-')}</span>
                             <span>Preference:</span>
-                            <span className="font-mono truncate">{order.preference_id || '-'}</span>
+                            <span className="font-mono truncate">{isPosSale ? '-' : (order.preference_id || '-')}</span>
+                            {order.pos_note && (
+                                <>
+                                    <span>Nota POS:</span>
+                                    <span className="font-mono break-words">{order.pos_note}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

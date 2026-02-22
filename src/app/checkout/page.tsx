@@ -22,13 +22,17 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/mercadopago";
 import { AddressForm, type Address } from "@/components/checkout/AddressForm";
 import { LoadingOverlay } from "@/components/checkout/LoadingOverlay";
+import type { User } from "@supabase/supabase-js";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
-  const { items, totalAmount, removeItem, clearCart } = useCart();
+  const { items, totalAmount, removeItem } = useCart();
   const { toast } = useToast();
   const hasItems = items.length > 0;
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [checkoutEmail, setCheckoutEmail] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<"shipping" | "pickup">(
@@ -49,6 +53,8 @@ export default function CheckoutPage() {
       : 15000;
   const discount = appliedCoupon?.discountAmount ?? 0;
   const grandTotal = Math.max(0, totalAmount + shipping - discount);
+  const normalizedCheckoutEmail = checkoutEmail.trim().toLowerCase();
+  const isCheckoutEmailValid = EMAIL_REGEX.test(normalizedCheckoutEmail);
 
   // Check auth
   useEffect(() => {
@@ -60,11 +66,17 @@ export default function CheckoutPage() {
     checkUser();
   }, []);
 
+  useEffect(() => {
+    if (user?.email) {
+      setCheckoutEmail(user.email);
+    }
+  }, [user?.email]);
+
   const handleCheckout = async () => {
-    if (!user) {
+    if (!isCheckoutEmailValid) {
       toast({
-        title: "Debes iniciar sesión",
-        description: "Por favor inicia sesión para continuar con tu compra.",
+        title: "Correo inválido",
+        description: "Ingresa un correo válido para continuar con tu compra.",
         variant: "destructive",
       });
       return;
@@ -93,7 +105,7 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     try {
       // Formatear items para la API
-      const formattedItems = items.map((item: any) => ({
+      const formattedItems = items.map((item) => ({
         id: item.id,
         product_id: item.id,
         variant_id: item.variant_id || 0,
@@ -112,7 +124,8 @@ export default function CheckoutPage() {
           shipping_address: deliveryMethod === "shipping" ? selectedAddress : null,
           delivery_method: deliveryMethod,
           coupon_code: appliedCoupon?.code || null,
-          user_id: user.id,
+          user_id: user?.id ?? null,
+          guest_email: user ? null : normalizedCheckoutEmail,
         }),
       });
 
@@ -128,12 +141,14 @@ export default function CheckoutPage() {
       } else {
         throw new Error("No se recibió la URL de pago");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo procesar tu pedido.";
       console.error("Error creating preference:", error);
       setIsProcessing(false);
       toast({
         title: "Error",
-        description: error.message || "No se pudo procesar tu pedido.",
+        description: message,
         variant: "destructive",
       });
     }
@@ -204,10 +219,12 @@ export default function CheckoutPage() {
         title: "Cupón aplicado",
         description: `Se descontaron ${formatMoney(discountAmount)}.`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Error al validar el cupón.";
       toast({
         title: "No se pudo aplicar",
-        description: err.message || "Error al validar el cupón.",
+        description: message,
         variant: "destructive",
       });
       setAppliedCoupon(null);
@@ -269,6 +286,38 @@ export default function CheckoutPage() {
 
             <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
               <div className="space-y-6">
+                <Card className="rounded-2xl border bg-card/80">
+                  <CardHeader>
+                    <CardTitle>Contacto</CardTitle>
+                    <CardDescription>
+                      Este correo recibirá la confirmación de tu pedido.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Label htmlFor="checkout-email">Correo electrónico *</Label>
+                      <Input
+                        id="checkout-email"
+                        type="email"
+                        placeholder="tu-correo@ejemplo.com"
+                        value={checkoutEmail}
+                        onChange={(e) => setCheckoutEmail(e.target.value)}
+                        autoComplete="email"
+                      />
+                      {!isCheckoutEmailValid && checkoutEmail.trim().length > 0 && (
+                        <p className="text-xs text-destructive">
+                          Ingresa un correo válido.
+                        </p>
+                      )}
+                      {user?.email && (
+                        <p className="text-xs text-muted-foreground">
+                          Sesión iniciada como {user.email}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Card className="rounded-2xl border bg-card/80">
                   <CardHeader>
                     <CardTitle>Entrega</CardTitle>
@@ -355,9 +404,9 @@ export default function CheckoutPage() {
                 </section>
 
                 {/* Formulario de dirección */}
-                {user && deliveryMethod === "shipping" && (
+                {deliveryMethod === "shipping" && (
                   <AddressForm
-                    userId={user.id}
+                    userId={user?.id}
                     onAddressChange={setSelectedAddress}
                   />
                 )}
@@ -494,30 +543,25 @@ export default function CheckoutPage() {
                       </Label>
                     </div>
 
-                    {!user ? (
-                      <Button asChild className="w-full rounded-xl">
-                        <Link href="/login">Iniciar sesión para continuar</Link>
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleCheckout}
-                        disabled={
-                          !acceptedTerms ||
-                          isProcessing ||
-                          (deliveryMethod === "shipping" && !selectedAddress)
-                        }
-                        className="w-full rounded-xl"
-                      >
-                        {isProcessing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Procesando...
-                          </>
-                        ) : (
-                          "Proceder al pago"
-                        )}
-                      </Button>
-                    )}
+                    <Button
+                      onClick={handleCheckout}
+                      disabled={
+                        !acceptedTerms ||
+                        isProcessing ||
+                        !isCheckoutEmailValid ||
+                        (deliveryMethod === "shipping" && !selectedAddress)
+                      }
+                      className="w-full rounded-xl"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Procesando...
+                        </>
+                      ) : (
+                        "Proceder al pago"
+                      )}
+                    </Button>
 
                     <Button
                       asChild

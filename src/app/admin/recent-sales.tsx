@@ -8,15 +8,21 @@ import { Badge } from '@/components/ui/badge'
 
 type Sale = {
     id: string
-    user_id: string
+    user_id: string | null
+    guest_email?: string | null
+    sold_to_name?: string | null
+    sales_channel?: 'online_mp' | 'physical_pos' | null
     total_cents: number
     currency: string
     status: string
     created_at: string
     profiles?: {
-        email: string
-        display_name: string
-    }
+        email?: string | null
+        display_name?: string | null
+    } | null
+    addresses?: {
+        full_name?: string | null
+    } | null
 }
 
 const statusMap: Record<string, { label: string; color: string }> = {
@@ -30,7 +36,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
     refunded: { label: 'Reembolsado', color: 'bg-orange-100 text-orange-800' },
 }
 
-export default function RecentSales({ initialSales }: { initialSales: any[] }) {
+export default function RecentSales({ initialSales }: { initialSales: Sale[] }) {
     const [sales, setSales] = useState<Sale[]>(initialSales)
 
     useEffect(() => {
@@ -42,16 +48,16 @@ export default function RecentSales({ initialSales }: { initialSales: any[] }) {
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'orders' },
-                async (payload: any) => {
+                async (payload: { new: { id: string } }) => {
                     // Fetch the full order with profile to display
                     const { data: newOrder } = await supa
                         .from('orders')
-                        .select('*, profiles(email, display_name)')
+                        .select('*, profiles(email, display_name), addresses:shipping_address_id(full_name)')
                         .eq('id', payload.new.id)
                         .single()
 
                     if (newOrder) {
-                        setSales((prev) => [newOrder, ...prev].slice(0, 5))
+                        setSales((prev) => [newOrder as Sale, ...prev].slice(0, 5))
                     }
                 }
             )
@@ -71,8 +77,14 @@ export default function RecentSales({ initialSales }: { initialSales: any[] }) {
             <CardContent>
                 <div className="space-y-8">
                     {sales.map((sale) => {
-                        const name = sale.profiles?.display_name || 'Cliente'
-                        const email = sale.profiles?.email || 'Sin correo'
+                        const email = sale.profiles?.email || sale.guest_email || 'Sin correo'
+                        const name =
+                            sale.profiles?.display_name ||
+                            sale.sold_to_name ||
+                            sale.addresses?.full_name ||
+                            (sale.guest_email ? 'Cliente invitado' : 'Cliente')
+                        const isPosSale = sale.sales_channel === 'physical_pos'
+                        const avatarId = email !== 'Sin correo' ? email : sale.id
                         const amount = new Intl.NumberFormat('es-MX', {
                             style: 'currency',
                             currency: sale.currency || 'MXN',
@@ -83,7 +95,7 @@ export default function RecentSales({ initialSales }: { initialSales: any[] }) {
                         return (
                             <div key={sale.id} className="flex items-center">
                                 <Avatar className="h-9 w-9">
-                                    <AvatarImage src={`https://avatar.vercel.sh/${email}`} alt="Avatar" />
+                                    <AvatarImage src={`https://avatar.vercel.sh/${avatarId}`} alt="Avatar" />
                                     <AvatarFallback>{name[0]?.toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <div className="ml-4 space-y-1">
@@ -93,7 +105,7 @@ export default function RecentSales({ initialSales }: { initialSales: any[] }) {
                                 <div className="ml-auto flex flex-col items-end gap-1">
                                     <div className="font-medium">{amount}</div>
                                     <Badge variant="secondary" className={`text-[10px] px-1 py-0 ${statusConfig.color}`}>
-                                        {statusConfig.label}
+                                        {isPosSale ? `POS · ${statusConfig.label}` : statusConfig.label}
                                     </Badge>
                                 </div>
                             </div>

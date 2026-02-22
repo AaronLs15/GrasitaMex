@@ -15,39 +15,16 @@ import {
 } from "@/components/ui/card";
 import { OrderSummary } from "@/components/checkout/OrderSummary";
 import { Clock, AlertCircle, Loader2 } from "lucide-react";
-import { supabaseBrowser } from "@/lib/supabase/client";
 import { useCart } from "@/context/cart-context";
-
-type OrderSummaryItem = {
-    id: number;
-    title: string;
-    size_label: string;
-    quantity: number;
-    unit_price_cents: number;
-    line_total_cents: number;
-};
-
-type PendingOrder = {
-    id: string;
-    status: string;
-    total_cents: number;
-    currency: string;
-    discount_amount_cents: number;
-    coupon_code: string | null;
-    created_at: string;
-    shipping_address_id?: number | null;
-    delivery_method?: "shipment" | "pickup";
-    order_items?: OrderSummaryItem[];
-};
-
-interface OrderData {
-    order: PendingOrder;
-    items: OrderSummaryItem[];
-}
+import {
+    fetchPublicOrderSummary,
+    resolvePublicOrderLookup,
+    type PublicOrderData,
+} from "@/lib/checkout/public-order";
 
 function PendingContent() {
     const searchParams = useSearchParams();
-    const [orderData, setOrderData] = useState<OrderData | null>(null);
+    const [orderData, setOrderData] = useState<PublicOrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { clearCart } = useCart();
@@ -55,47 +32,17 @@ function PendingContent() {
 
     useEffect(() => {
         const fetchOrder = async () => {
-            const externalRef =
-                searchParams.get("external_reference") ||
-                searchParams.get("preference_id");
+            const lookup = resolvePublicOrderLookup(searchParams);
+            const { data, error: fetchError } = await fetchPublicOrderSummary(lookup);
 
-            if (!externalRef) {
-                setError("No se encontró la referencia de la orden");
+            if (fetchError || !data) {
+                setError(fetchError || "No se pudo verificar el pago");
                 setLoading(false);
                 return;
             }
 
-            try {
-                const supa = supabaseBrowser();
-
-                const query = supa
-                    .from("orders")
-                    .select(`*, order_items(*)`)
-                    .eq("status", "pending_payment");
-
-                let { data: order } = await query.eq("id", externalRef).single();
-
-                if (!order) {
-                    const result = await query.eq("preference_id", externalRef).single();
-                    order = result.data;
-                }
-
-                if (!order) {
-                    setError("Orden no encontrada");
-                    setLoading(false);
-                    return;
-                }
-
-                setOrderData({
-                    order,
-                    items: order.order_items || [],
-                });
-            } catch (err) {
-                console.error("Error fetching order:", err);
-                setError("Error al cargar los detalles de la orden");
-            } finally {
-                setLoading(false);
-            }
+            setOrderData(data);
+            setLoading(false);
         };
 
         fetchOrder();

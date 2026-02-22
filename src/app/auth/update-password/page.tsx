@@ -6,14 +6,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/client'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useToast } from '@/hooks/use-toast'
 import DarkVeil from '@/components/DarkVeil'
 import Link from 'next/link'
-import { ArrowLeft, KeyRound } from 'lucide-react'
+import { ArrowLeft, KeyRound, Eye, EyeOff } from 'lucide-react'
 
 const updatePasswordSchema = z.object({
     password: z.string().min(6, 'Mínimo 6 caracteres'),
@@ -27,6 +27,8 @@ export default function UpdatePasswordPage() {
     const { toast } = useToast()
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
     const form = useForm<z.infer<typeof updatePasswordSchema>>({
         resolver: zodResolver(updatePasswordSchema),
@@ -88,11 +90,24 @@ export default function UpdatePasswordPage() {
                                         <FormItem>
                                             <FormLabel>Nueva Contraseña</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="password"
-                                                    autoComplete="new-password"
-                                                    {...field}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        type={showPassword ? 'text' : 'password'}
+                                                        autoComplete="new-password"
+                                                        placeholder="Escribe tu nueva contraseña"
+                                                        className="pr-10"
+                                                        {...field}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPassword((prev) => !prev)}
+                                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+                                                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                                        aria-pressed={showPassword}
+                                                    >
+                                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -105,11 +120,24 @@ export default function UpdatePasswordPage() {
                                         <FormItem>
                                             <FormLabel>Confirmar Contraseña</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="password"
-                                                    autoComplete="new-password"
-                                                    {...field}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        type={showConfirmPassword ? 'text' : 'password'}
+                                                        autoComplete="new-password"
+                                                        placeholder="Repite tu nueva contraseña"
+                                                        className="pr-10"
+                                                        {...field}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+                                                        aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                                        aria-pressed={showConfirmPassword}
+                                                    >
+                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
