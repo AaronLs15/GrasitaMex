@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/client'
+import { prepareImageForUpload } from '@/lib/image-compress'
 import { storagePathFromPublicUrl } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
@@ -41,12 +42,13 @@ export default function ProductImagesClient({
       let pos = maxRows?.[0]?.position ?? 0
 
       for (const file of Array.from(files)) {
-        const ext = file.name.split('.').pop()
-        const name = crypto.randomUUID() + (ext ? `.${ext}` : '')
+        const prepared = await prepareImageForUpload(file)
+        const name =
+          crypto.randomUUID() + (prepared.extension ? `.${prepared.extension}` : '')
         const path = `${productId}/${name}`
         const { error: upErr } = await supa.storage
           .from('product-images')
-          .upload(path, file, { upsert: false })
+          .upload(path, prepared.blob, { upsert: false })
         if (upErr) throw upErr
 
         // Public URL
@@ -131,7 +133,7 @@ export default function ProductImagesClient({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Formatos comunes soportados (jpg, png, webp). Se publican en el bucket <code>product-images</code>.
+          Las imágenes se optimizan automáticamente al subirlas (máx. 1600px, WebP). Se publican en el bucket <code>product-images</code>.
         </p>
       </Card>
 

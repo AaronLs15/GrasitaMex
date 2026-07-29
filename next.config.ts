@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // Sirve las imágenes tal cual (desde Supabase/public) sin pasar por el
+    // optimizador de Vercel, cuya cuota del plan Hobby se agota (error 402).
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { prepareImageForUpload } from "@/lib/image-compress";
 import { slugify } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -227,13 +228,15 @@ export default function ProductForm({
                 let position = maxPos + 1;
 
                 for (const file of Array.from(files)) {
-                    const ext = file.name.split(".").pop();
-                    const name = crypto.randomUUID() + (ext ? `.${ext}` : "");
+                    const prepared = await prepareImageForUpload(file);
+                    const name =
+                        crypto.randomUUID() +
+                        (prepared.extension ? `.${prepared.extension}` : "");
                     const path = `${productId}/${name}`;
 
                     const { error: upErr } = await supa.storage
                         .from("product-images")
-                        .upload(path, file, { upsert: false });
+                        .upload(path, prepared.blob, { upsert: false });
                     if (upErr) throw upErr;
 
                     const { data: pub } = supa.storage
