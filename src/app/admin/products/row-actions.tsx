@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabaseBrowser } from '@/lib/supabase/client'
+import { deleteProduct } from './actions'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,7 +19,8 @@ import PosSaleDialog from './pos-sale-dialog'
 type Product = {
   id: number
   title: string
-  price_cents: number
+  price_cents: number | null
+  pricing_mode: 'general' | 'variant'
   currency: string
 }
 
@@ -30,12 +31,13 @@ export default function RowActions({ product }: { product: Product }) {
   const { toast } = useToast()
 
   async function onDelete() {
-    const supa = supabaseBrowser()
     try {
-      const { error } = await supa.from('products').delete().eq('id', product.id)
-      if (error) throw error
+      const result = await deleteProduct(product.id)
       setIsDeleteDialogOpen(false)
-      toast({ title: 'Producto eliminado' })
+      toast({
+        title: 'Producto eliminado',
+        description: result.cleanupPending ? 'La limpieza de algunas imágenes quedó programada para reintento.' : undefined,
+      })
       startTransition(() => router.refresh())
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error desconocido'

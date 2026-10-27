@@ -19,6 +19,8 @@ type Product = {
   id: number;
   title: string;
   price_cents: number;
+  pricing_mode: 'general' | 'variant';
+  currency: string;
   condition: "new" | "used" | string;
   created_at: string;
   image_url: string | null; // derivada de product_images
@@ -29,10 +31,10 @@ type Product = {
 
 /* ---------- helpers ---------- */
 
-function moneyFromCents(cents: number) {
+function moneyFromCents(cents: number, currency = 'MXN') {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
-    currency: "MXN",
+    currency,
   }).format((cents ?? 0) / 100);
 }
 
@@ -69,6 +71,8 @@ function ModelosContent() {
           id,
           title,
           price_cents,
+          pricing_mode,
+          currency,
           condition,
           created_at,
           product_images (
@@ -85,12 +89,15 @@ function ModelosContent() {
             id,
             size_label,
             qty,
-            active
+            active,
+            sku,
+            price_cents
           )
         `
         )
         .eq("published", true)
         .gt("product_variants.qty", 0)
+        .eq("product_variants.active", true)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -132,10 +139,10 @@ function ModelosContent() {
             size_label: string | null;
             qty?: number | null;
             active?: boolean | null;
+            sku: string | null;
+            price_cents: number | null;
           }[];
-
-          const sizeMap = new Map<string, number>();
-          const variantIdMap = new Map<string, number>();
+          const sizeOptions: CartSizeOption[] = [];
 
           for (const variant of variants) {
             const label = variant.size_label?.trim();
@@ -144,16 +151,12 @@ function ModelosContent() {
             const qty = variant.qty ?? 0;
             if (qty <= 0) continue;
 
-            sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
-            // Store the first variant ID found for this label
-            if (!variantIdMap.has(label)) {
-              variantIdMap.set(label, variant.id);
-            }
+            sizeOptions.push({ id: variant.id, label, sku: variant.sku, available: qty, priceCents: row.pricing_mode === 'variant' ? variant.price_cents ?? undefined : row.price_cents });
           }
 
           const labelPool =
-            sizeMap.size > 0
-              ? Array.from(sizeMap.keys())
+            sizeOptions.length > 0
+              ? sizeOptions.map((option) => option.label)
               : variants
                 .map((v) => v.size_label?.trim())
                 .filter((label): label is string => Boolean(label));
@@ -170,18 +173,14 @@ function ModelosContent() {
           }
           availableSizesCm.sort((a, b) => a - b);
 
-          const sizeOptions = Array.from(sizeMap.entries()).map(
-            ([label, available]) => ({
-              id: variantIdMap.get(label)!,
-              label,
-              available
-            })
-          );
+          const configuredPrices = sizeOptions.map((option) => option.priceCents ?? 0);
 
           return {
             id: row.id,
             title: row.title,
-            price_cents: row.price_cents,
+            price_cents: row.pricing_mode === 'variant' ? (configuredPrices.length ? Math.min(...configuredPrices) : 0) : row.price_cents ?? 0,
+            pricing_mode: row.pricing_mode,
+            currency: row.currency,
             condition: row.condition,
             created_at: row.created_at,
             image_url: firstImg,
@@ -436,7 +435,7 @@ function ModelosContent() {
                           {product.title}
                         </h2>
                         <span className="text-sm font-bold whitespace-nowrap">
-                          {moneyFromCents(product.price_cents)}
+                          {product.pricing_mode === 'variant' ? 'Desde ' : ''}{moneyFromCents(product.price_cents, product.currency)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -453,6 +452,7 @@ function ModelosContent() {
                         productId={product.id}
                         title={product.title}
                         priceCents={product.price_cents}
+                        currency={product.currency}
                         sizeOptions={product.sizeOptions}
                         className="pt-1"
                         buttonVariant="default"

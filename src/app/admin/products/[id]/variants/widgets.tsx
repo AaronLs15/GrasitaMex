@@ -23,6 +23,8 @@ type Variant = {
   size_label: string
   qty: number
   active: boolean
+  price_cents: number | null
+  initial_price_cents: number
   created_at: string
 }
 
@@ -32,15 +34,25 @@ const schema = z.object({
   size_label: z.string().min(1, 'Requerido'),
   qty: z.coerce.number().int().min(0),
   active: z.boolean().optional(),
+  price_value: z.coerce.number().min(0, '>= 0'),
+  cost_value: z.coerce.number().min(0, '>= 0'),
 })
 
 export default function VariantsClient({
   productId,
   productTitle,
+  pricingMode,
+  currency,
+  defaultPriceCents,
+  defaultCostCents,
   initial,
 }: {
   productId: number
   productTitle: string
+  pricingMode: 'general' | 'variant'
+  currency: string
+  defaultPriceCents: number
+  defaultCostCents: number
   initial: Variant[]
 }) {
   const [open, setOpen] = useState(false)
@@ -51,17 +63,17 @@ export default function VariantsClient({
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema) as any,
-    defaultValues: { sku: '', size_label: '', qty: 1, active: true },
+    defaultValues: { sku: '', size_label: '', qty: 1, active: true, price_value: defaultPriceCents / 100, cost_value: defaultCostCents / 100 },
   })
 
   function openCreate() {
     setEditing(null)
-    form.reset({ sku: '', size_label: '', qty: 1, active: true })
+    form.reset({ sku: '', size_label: '', qty: 1, active: true, price_value: defaultPriceCents / 100, cost_value: defaultCostCents / 100 })
     setOpen(true)
   }
   function openEdit(v: Variant) {
     setEditing(v)
-    form.reset({ sku: v.sku, size_label: v.size_label, qty: v.qty, active: v.active })
+    form.reset({ sku: v.sku, size_label: v.size_label, qty: v.qty, active: v.active, price_value: (v.price_cents ?? defaultPriceCents) / 100, cost_value: v.initial_price_cents / 100 })
     setOpen(true)
   }
 
@@ -75,6 +87,8 @@ export default function VariantsClient({
             size_label: values.size_label,
             qty: values.qty,
             active: !!values.active,
+            price_cents: Math.round(values.price_value * 100),
+            initial_price_cents: Math.round(values.cost_value * 100),
           })
           .eq('id', editing.id)
         if (error) throw error
@@ -90,6 +104,8 @@ export default function VariantsClient({
             size_label: values.size_label,
             qty: values.qty,
             active: !!values.active,
+            price_cents: Math.round(values.price_value * 100),
+            initial_price_cents: Math.round(values.cost_value * 100),
           })
         if (error) throw error
         toast({ title: 'Variante creada' })
@@ -121,7 +137,7 @@ export default function VariantsClient({
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Variantes de {productTitle}</h1>
-        <p className="text-sm text-muted-foreground">Gestiona tallas y stock de este producto.</p>
+        <p className="text-sm text-muted-foreground">Gestiona tallas, stock, precio y costo de compra por variante. {pricingMode === 'general' ? 'El precio de venta general se usa al comprar.' : 'La tienda usa el precio de cada variante.'}</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -136,6 +152,8 @@ export default function VariantsClient({
               <TableHead>ID</TableHead>
               <TableHead>Talla</TableHead>
               <TableHead>Cantidad</TableHead>
+              <TableHead>Precio</TableHead>
+              <TableHead>Costo</TableHead>
               <TableHead>Activa</TableHead>
               <TableHead className="w-[180px]">Acciones</TableHead>
             </TableRow>
@@ -146,6 +164,8 @@ export default function VariantsClient({
                 <TableCell className="font-medium">{v.id}</TableCell>
                 <TableCell>{v.size_label}</TableCell>
                 <TableCell>{v.qty}</TableCell>
+                <TableCell>{currency} {((v.price_cents ?? defaultPriceCents) / 100).toFixed(2)}</TableCell>
+                <TableCell>{currency} {(v.initial_price_cents / 100).toFixed(2)}</TableCell>
                 <TableCell>{v.active ? 'Sí' : 'No'}</TableCell>
                 <TableCell className="space-x-2">
                   <Button variant="outline" size="sm" onClick={() => openEdit(v)}>
@@ -159,7 +179,7 @@ export default function VariantsClient({
             ))}
             {initial.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                   Aún no hay variantes.
                 </TableCell>
               </TableRow>
@@ -196,6 +216,20 @@ export default function VariantsClient({
                   <FormItem>
                     <FormLabel>Cantidad</FormLabel>
                     <FormControl><Input type="number" min="0" step="1" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="price_value" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio ({currency})</FormLabel>
+                    <FormControl><Input type="number" min="0" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="cost_value" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Costo de compra ({currency})</FormLabel>
+                    <FormControl><Input type="number" min="0" step="0.01" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

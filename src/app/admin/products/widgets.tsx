@@ -67,6 +67,7 @@ const schema = z.object({
   model_name: z.string().optional().nullable(),
   condition: z.enum(["new", "used"]),
   currency: z.string().length(3, "3 letras, p. ej. MXN"),
+  pricing_mode: z.enum(["general", "variant"]),
   price_value: z.coerce.number().min(0, ">= 0"),
   initial_price_value: z.coerce.number().min(0, ">= 0"),
   published: z.boolean().optional(),
@@ -108,6 +109,7 @@ export default function ProductsClient({
       model_name: "",
       condition: "new",
       currency: "MXN",
+      pricing_mode: "general",
       price_value: 0,
       initial_price_value: 0,
       published: false,
@@ -161,7 +163,8 @@ export default function ProductsClient({
         model_name: values.model_name || null,
         condition: values.condition,
         currency: values.currency.toUpperCase(),
-        price_cents,
+        pricing_mode: values.pricing_mode,
+        price_cents: values.pricing_mode === "general" ? price_cents : null,
         initialprice_cents,
         published: !!values.published,
       };
@@ -361,11 +364,31 @@ export default function ProductsClient({
                 />
                 <FormField
                   control={form.control}
-                  name="price_value"
+                  name="pricing_mode"
                   render={({ field }) => (
                     <FormItem>
+                      <FormLabel>Configuración de precio</FormLabel>
+                      <FormControl>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="general">Precio general</SelectItem>
+                            <SelectItem value="variant">Precio y costo por variante</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.watch("pricing_mode") === "general" && (
+                  <FormField
+                    control={form.control}
+                    name="price_value"
+                    render={({ field }) => (
+                    <FormItem>
                       <FormLabel>
-                        Precio ({form.watch("currency").toUpperCase()})
+                        Precio general ({form.watch("currency").toUpperCase()})
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -378,8 +401,12 @@ export default function ProductsClient({
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                    )}
+                  />
+                )}
+                {form.watch("pricing_mode") === "variant" && (
+                  <p className="text-sm text-muted-foreground">Los precios por talla se agregan desde la sección Variantes después de crear el producto.</p>
+                )}
                 <FormField
                   control={form.control}
                   name="initial_price_value"

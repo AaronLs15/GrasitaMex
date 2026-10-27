@@ -361,7 +361,7 @@ export default function CheckoutPage() {
                     const lineTotal = item.price_cents * item.quantity;
                     return (
                       <Card
-                        key={`${item.id}-${item.size}`}
+                        key={`${item.id}-${item.variant_id ?? item.size}`}
                         className="rounded-2xl border bg-card/80"
                       >
                         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -392,7 +392,7 @@ export default function CheckoutPage() {
                               type="button"
                               variant="ghost"
                               className="text-sm text-destructive hover:text-destructive"
-                              onClick={() => removeItem(item.id, item.size)}
+                              onClick={() => removeItem(item.id, item.size, item.variant_id)}
                             >
                               Eliminar
                             </Button>

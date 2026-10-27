@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { prepareImageForUpload } from '@/lib/image-compress'
-import { storagePathFromPublicUrl } from '@/lib/utils'
+import { deleteProductImage } from '../../actions'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -76,15 +76,12 @@ export default function ProductImagesClient({
 
   async function handleDelete(img: Img) {
     if (!confirm('¿Eliminar imagen?')) return
-    const supa = supabaseBrowser()
     try {
-      const path = storagePathFromPublicUrl(img.url)
-      if (path) {
-        await supa.storage.from('product-images').remove([path])
-      }
-      const { error } = await supa.from('product_images').delete().eq('id', img.id)
-      if (error) throw error
-      toast({ title: 'Imagen eliminada' })
+      const result = await deleteProductImage(img.id)
+      toast({
+        title: 'Imagen eliminada',
+        description: result.cleanupPending ? 'La limpieza en Storage se reintentará automáticamente.' : undefined,
+      })
       startTransition(() => router.refresh())
     } catch (e: any) {
       toast({ title: 'Error eliminando', description: e.message, variant: 'destructive' })

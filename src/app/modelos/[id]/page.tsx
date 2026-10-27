@@ -23,7 +23,9 @@ type ProductDetail = {
     id: number;
     title: string;
     description: string | null;
-    price_cents: number;
+    price_cents: number | null;
+    pricing_mode: 'general' | 'variant';
+    currency: string;
     condition: "new" | "used" | string;
     images: { url: string; position: number }[];
     category: string | null;
@@ -34,15 +36,17 @@ type RelatedProduct = {
     id: number;
     title: string;
     price_cents: number;
+    pricing_mode: 'general' | 'variant';
+    currency: string;
     image_url: string | null;
     condition: "new" | "used" | string;
 };
 
 /* ---------- helpers ---------- */
-function moneyFromCents(cents: number) {
+function moneyFromCents(cents: number, currency = 'MXN') {
     return new Intl.NumberFormat("es-MX", {
         style: "currency",
-        currency: "MXN",
+        currency,
     }).format((cents ?? 0) / 100);
 }
 
@@ -71,12 +75,12 @@ export default function ProductDetailPage() {
             const { data: prodData, error: prodError } = await supabase
                 .from("products")
                 .select(`
-          id, title, description, price_cents, condition,
+          id, title, description, price_cents, pricing_mode, currency, condition,
           product_images (url, position),
           product_categories (
             category:categories (id, name, kind)
           ),
-          product_variants (id, size_label, qty, active)
+          product_variants (id, size_label, sku, qty, active, price_cents)
         `)
                 .eq("id", id)
                 .single();
@@ -98,10 +102,10 @@ export default function ProductDetailPage() {
                 size_label: string | null;
                 qty?: number | null;
                 active?: boolean | null;
+                sku: string | null;
+                price_cents: number | null;
             }[];
-
-            const sizeMap = new Map<string, number>();
-            const variantIdMap = new Map<string, number>();
+            const sizeOptions: SizeOption[] = [];
 
             for (const v of variants) {
                 const label = v.size_label?.trim();
@@ -110,26 +114,18 @@ export default function ProductDetailPage() {
                 const qty = v.qty ?? 0;
                 if (qty <= 0) continue;
 
-                sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
-                // Store the first variant ID found for this label
-                if (!variantIdMap.has(label)) {
-                    variantIdMap.set(label, v.id);
-                }
+                sizeOptions.push({ id: v.id, label, sku: v.sku, available: qty, priceCents: prodData.pricing_mode === 'variant' ? v.price_cents ?? undefined : prodData.price_cents });
             }
 
             // Sort sizes numerically if possible, otherwise alphabetically
-            const sortedLabels = Array.from(sizeMap.keys()).sort((a, b) => {
-                const numA = parseFloat(a.match(/(\d+(\.\d+)?)/)?.[0] ?? "0");
-                const numB = parseFloat(b.match(/(\d+(\.\d+)?)/)?.[0] ?? "0");
+            sizeOptions.sort((a, b) => {
+                const aLabel = a.label;
+                const bLabel = b.label;
+                const numA = parseFloat(aLabel.match(/(\d+(\.\d+)?)/)?.[0] ?? "0");
+                const numB = parseFloat(bLabel.match(/(\d+(\.\d+)?)/)?.[0] ?? "0");
                 if (numA > 0 && numB > 0) return numA - numB;
-                return a.localeCompare(b);
+                return aLabel.localeCompare(bLabel);
             });
-
-            const sizeOptions = sortedLabels.map(label => ({
-                id: variantIdMap.get(label)!,
-                label,
-                available: sizeMap.get(label) ?? 0
-            }));
 
             // Process category (take the first 'general' one)
             const pcats = (prodData.product_categories ?? []) as unknown as { category?: { id: number; name: string; kind: string } }[];
@@ -141,7 +137,9 @@ export default function ProductDetailPage() {
                 id: prodData.id,
                 title: prodData.title,
                 description: prodData.description,
-                price_cents: prodData.price_cents,
+                price_cents: prodData.pricing_mode === 'variant' ? (sizeOptions.length ? Math.min(...sizeOptions.map((option) => option.priceCents ?? 0)) : null) : prodData.price_cents ?? 0,
+                pricing_mode: prodData.pricing_mode,
+                currency: prodData.currency,
                 condition: prodData.condition,
                 images,
                 category: categoryName,
@@ -154,8 +152,9 @@ export default function ProductDetailPage() {
                     .from("product_categories")
                     .select(`
             product:products (
-              id, title, price_cents, condition, published,
-              product_images (url, position)
+              id, title, price_cents, pricing_mode, currency, condition, published,
+              product_images (url, position),
+              product_variants (price_cents, qty, active)
             )
           `)
                     .eq("category_id", categoryId)
@@ -170,11 +169,17 @@ export default function ProductDetailPage() {
 
                             const pImgs = (p.product_images ?? []) as { url: string; position: number }[];
                             pImgs.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                            const variantPrices = (p.product_variants ?? [])
+                                .filter((v: any) => v.active && v.qty > 0 && v.price_cents !== null)
+                                .map((v: any) => v.price_cents as number);
+                            if (p.pricing_mode === 'variant' && variantPrices.length === 0) return null;
 
                             return {
                                 id: p.id,
                                 title: p.title,
-                                price_cents: p.price_cents,
+                                price_cents: p.pricing_mode === 'variant' ? Math.min(...variantPrices) : p.price_cents,
+                                pricing_mode: p.pricing_mode,
+                                currency: p.currency,
                                 condition: p.condition,
                                 image_url: pImgs[0]?.url ?? null,
                             } as RelatedProduct;
@@ -298,7 +303,7 @@ export default function ProductDetailPage() {
                                 {product.title}
                             </h1>
                             <p className="mt-2 text-2xl font-semibold text-primary">
-                                {moneyFromCents(product.price_cents)}
+                                {product.price_cents === null ? 'Agotado' : <>{product.pricing_mode === 'variant' ? 'Desde ' : ''}{moneyFromCents(product.price_cents, product.currency)}</>}
                             </p>
                         </div>
 
@@ -311,7 +316,8 @@ export default function ProductDetailPage() {
                             <AddToCartControl
                                 productId={product.id}
                                 title={product.title}
-                                priceCents={product.price_cents}
+                                priceCents={product.price_cents ?? 0}
+                                currency={product.currency}
                                 sizeOptions={product.sizeOptions}
                                 className="w-full"
                                 buttonVariant="default"
@@ -362,7 +368,7 @@ export default function ProductDetailPage() {
                                                 {p.title}
                                             </h3>
                                             <p className="text-sm font-semibold mt-1">
-                                                {moneyFromCents(p.price_cents)}
+                                                {p.pricing_mode === 'variant' ? 'Desde ' : ''}{moneyFromCents(p.price_cents, p.currency)}
                                             </p>
                                         </div>
                                     </div>

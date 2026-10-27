@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { deleteProductImage } from "./actions";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, Loader2, X } from "lucide-react";
 
@@ -55,6 +56,7 @@ const schema = z.object({
     model_name: z.string().optional().nullable(),
     condition: z.enum(["new", "used"]),
     currency: z.string().length(3, "3 letras, p. ej. MXN"),
+    pricing_mode: z.enum(["general", "variant"]),
     price_value: z.coerce.number().min(0, ">= 0"),
     initial_price_value: z.coerce.number().min(0, ">= 0"),
     published: z.boolean().optional(),
@@ -115,6 +117,7 @@ export default function ProductForm({
             model_name: initialData?.model_name ?? "",
             condition: initialData?.condition ?? "new",
             currency: initialData?.currency ?? "MXN",
+            pricing_mode: initialData?.pricing_mode ?? "general",
             price_value: initialData ? initialData.price_cents / 100 : 0,
             initial_price_value: initialData ? initialData.initialprice_cents / 100 : 0,
             published: initialData?.published ?? false,
@@ -134,13 +137,12 @@ export default function ProductForm({
 
     async function handleDeleteImage(imageId: number) {
         if (!confirm("¿Eliminar imagen?")) return;
-        const supa = supabaseBrowser();
-        const { error } = await supa.from("product_images").delete().eq("id", imageId);
-        if (error) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        } else {
+        try {
+            const result = await deleteProductImage(imageId);
             setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
-            toast({ title: "Imagen eliminada" });
+            toast({ title: "Imagen eliminada", description: result.cleanupPending ? "La limpieza en Storage se reintentará automáticamente." : undefined });
+        } catch (error) {
+            toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo eliminar la imagen", variant: "destructive" });
         }
     }
 
@@ -159,7 +161,8 @@ export default function ProductForm({
                 model_name: values.model_name || null,
                 condition: values.condition,
                 currency: values.currency.toUpperCase(),
-                price_cents,
+                pricing_mode: values.pricing_mode,
+                price_cents: values.pricing_mode === "general" ? price_cents : null,
                 initialprice_cents,
                 published: !!values.published,
             };
@@ -308,6 +311,23 @@ export default function ProductForm({
                                 </FormItem>
                             )}
                         />
+                        <FormField
+                            control={form.control}
+                            name="pricing_mode"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Configuración de precio</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="general">Un precio para todas las variantes</SelectItem>
+                                            <SelectItem value="variant">Precio y costo por variante</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -361,20 +381,25 @@ export default function ProductForm({
                                     </FormItem>
                                 )}
                             />
-                            <FormField
-                                control={form.control}
-                                name="price_value"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Precio</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" step="0.01" min="0" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            {form.watch("pricing_mode") === "general" && (
+                                <FormField
+                                    control={form.control}
+                                    name="price_value"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Precio general</FormLabel>
+                                            <FormControl><Input type="number" step="0.01" min="0" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                         </div>
+                        {form.watch("pricing_mode") === "variant" && (
+                            <p className="text-sm text-muted-foreground">
+                                Configura el precio y costo de cada talla en Variantes. El costo de compra aquí se usa como sugerencia para nuevas variantes.
+                            </p>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}

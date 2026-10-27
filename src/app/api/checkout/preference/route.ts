@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
     );
 
     // 1. Calcular subtotal
-    const subtotal = items.reduce(
+    let subtotal = items.reduce(
       (sum, item) => sum + item.price_cents * item.quantity,
       0
     );
@@ -209,8 +209,7 @@ export async function POST(req: NextRequest) {
         const isValid =
           (!coupon.start_date || new Date(coupon.start_date) <= now) &&
           (!coupon.end_date || new Date(coupon.end_date) >= now) &&
-          (!coupon.usage_limit || coupon.used_count < coupon.usage_limit) &&
-          subtotal >= (coupon.min_purchase_cents || 0);
+          (!coupon.usage_limit || coupon.used_count < coupon.usage_limit);
 
         if (isValid) {
           // Calcular descuento
@@ -232,7 +231,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Calcular total
-    const total = Math.max(0, subtotal + shippingCost - discountAmount);
+    let total = Math.max(0, subtotal + shippingCost - discountAmount);
 
     // 5. Guardar dirección de envío SOLO si es nueva y el usuario quiere guardarla
     let shippingAddrId: number | null = null;
@@ -341,13 +340,14 @@ export async function POST(req: NextRequest) {
         variantsById.set(variant.id, variant);
       }
 
-      const variantByProductSize = new Map<string, number>();
+      const variantByProductSize = new Map<string, number[]>();
       const variantBySku = new Map<string, number>();
 
       for (const variant of variantsById.values()) {
         const sizeLabel = variant.size_label?.trim();
         if (sizeLabel) {
-          variantByProductSize.set(`${variant.product_id}:${sizeLabel}`, variant.id);
+          const key = `${variant.product_id}:${sizeLabel}`;
+          variantByProductSize.set(key, [...(variantByProductSize.get(key) ?? []), variant.id]);
         }
         const sku = variant.sku?.trim();
         if (sku) {
@@ -360,10 +360,9 @@ export async function POST(req: NextRequest) {
 
         const sizeLabel = item.size?.trim();
         if (sizeLabel) {
-          const resolvedBySize = variantByProductSize.get(
-            `${item.product_id}:${sizeLabel}`
-          );
-          if (resolvedBySize) {
+          const matchesBySize = variantByProductSize.get(`${item.product_id}:${sizeLabel}`) ?? [];
+          if (matchesBySize.length === 1) {
+            const resolvedBySize = matchesBySize[0];
             console.log(
               `[Checkout] Fixed variant_id for product ${item.product_id}: ${resolvedBySize}`
             );
@@ -396,6 +395,81 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+
+    // Prices, labels, and product associations come from the database, never from localStorage.
+    const variantIds = Array.from(new Set(fixedItems.map((item) => item.variant_id)));
+    const { data: authoritativeRows, error: authoritativeError } = await supa
+      .from('product_variants')
+      .select('id, product_id, size_label, sku, qty, active, price_cents, product:products!inner(id, title, price_cents, pricing_mode, published, currency)')
+      .in('id', variantIds);
+
+    if (authoritativeError || !authoritativeRows || authoritativeRows.length !== variantIds.length) {
+      return NextResponse.json({ error: 'No se pudieron validar las variantes. Actualiza el carrito.' }, { status: 400 });
+    }
+
+    const variantsById = new Map((authoritativeRows as any[]).map((row) => [row.id, row]));
+    const staleCartPrice = fixedItems.some((item) => {
+      const row = variantsById.get(item.variant_id) as any;
+      const product = Array.isArray(row?.product) ? row.product[0] : row?.product;
+      const price = product?.pricing_mode === 'variant' ? row?.price_cents : product?.price_cents;
+      return Number.isInteger(price) && item.price_cents !== price;
+    });
+    if (staleCartPrice) {
+      return NextResponse.json({ error: 'El precio de una variante cambió. Vuelve a agregarla al carrito para continuar.' }, { status: 409 });
+    }
+    const unsupportedCurrency = Array.from(variantsById.values()).some((row: any) => {
+      const product = Array.isArray(row.product) ? row.product[0] : row.product;
+      return product?.currency?.trim() !== 'MXN';
+    });
+    if (unsupportedCurrency) {
+      return NextResponse.json({ error: 'El checkout en línea solo acepta productos configurados en MXN.' }, { status: 400 });
+    }
+    const pricedItems = fixedItems.map((item) => {
+      const row = variantsById.get(item.variant_id) as any;
+      const requestedQuantity = fixedItems
+        .filter((candidate) => candidate.variant_id === item.variant_id)
+        .reduce((quantity, candidate) => quantity + candidate.quantity, 0);
+      const product = Array.isArray(row?.product) ? row.product[0] : row?.product;
+      const price = product?.pricing_mode === 'variant' ? row?.price_cents : product?.price_cents;
+      if (!row?.active || !product?.published || row.product_id !== item.product_id || row.qty < requestedQuantity || !Number.isInteger(price) || price < 0) {
+        return null;
+      }
+      return {
+        ...item,
+        product_id: row.product_id,
+        sku: row.sku,
+        title: product.title,
+        size: row.size_label,
+        price_cents: price,
+      };
+    });
+    if (pricedItems.some((item) => item === null)) {
+      return NextResponse.json({ error: 'El producto, el precio o el inventario cambió. Actualiza el carrito.' }, { status: 409 });
+    }
+    const mergedByVariant = new Map<number, CartItem>();
+    for (const item of pricedItems as CartItem[]) {
+      const existing = mergedByVariant.get(item.variant_id);
+      if (existing) existing.quantity += item.quantity;
+      else mergedByVariant.set(item.variant_id, { ...item });
+    }
+    fixedItems = Array.from(mergedByVariant.values());
+    subtotal = fixedItems.reduce((sum, item) => sum + item.price_cents * item.quantity, 0);
+
+    // Recalculate coupon eligibility and discount on authoritative prices.
+    discountAmount = 0;
+    if (appliedCoupon) {
+      const validForSubtotal = subtotal >= (appliedCoupon.min_purchase_cents || 0);
+      if (validForSubtotal) {
+        discountAmount = appliedCoupon.discount_type === 'percentage'
+          ? Math.round((subtotal * appliedCoupon.discount_value) / 100)
+          : appliedCoupon.discount_value * 100;
+        if (appliedCoupon.max_discount_cents) discountAmount = Math.min(discountAmount, appliedCoupon.max_discount_cents);
+        discountAmount = Math.min(discountAmount, subtotal);
+      } else {
+        appliedCoupon = null;
+      }
+    }
+    total = Math.max(0, subtotal + shippingCost - discountAmount);
 
     // 6. Crear orden y reservar stock usando RPC
     // Esto maneja la concurrencia y evita sobreventa.

@@ -21,12 +21,15 @@ export type SizeOption = {
   id: number; // variant_id
   label: string;
   available: number;
+  priceCents?: number;
+  sku?: string | null;
 };
 
 type AddToCartControlProps = {
   productId: number;
   title: string;
   priceCents: number;
+  currency?: string;
   sizeOptions: SizeOption[];
   className?: string;
   buttonText?: string;
@@ -40,6 +43,7 @@ export function AddToCartControl({
   productId,
   title,
   priceCents,
+  currency = 'MXN',
   sizeOptions,
   className,
   buttonText = "Agregar al carrito",
@@ -50,7 +54,7 @@ export function AddToCartControl({
 }: AddToCartControlProps) {
   const { addItem, items } = useCart();
   const { toast } = useToast();
-  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState("");
 
   const normalizedOptions = useMemo(
     () => sizeOptions.filter((option) => option.available > 0),
@@ -58,11 +62,11 @@ export function AddToCartControl({
   );
   const hasSizes = normalizedOptions.length > 0;
   const selectedOption = normalizedOptions.find(
-    (option) => option.label === selectedSize
+    (option) => String(option.id) === selectedVariantId
   );
   const alreadyInCart =
     items.find(
-      (item) => item.id === productId && item.size === selectedSize
+      (item) => item.id === productId && (item.variant_id === selectedOption?.id || (!item.variant_id && item.size === selectedOption?.label))
     )?.quantity ?? 0;
   const remaining = selectedOption
     ? Math.max(selectedOption.available - alreadyInCart, 0)
@@ -73,7 +77,7 @@ export function AddToCartControl({
 
   const handleAdd = () => {
     if (!hasSizes) return;
-    if (!selectedSize) {
+    if (!selectedOption) {
       toast({
         title: "Selecciona una talla",
         description: "Debes elegir una talla antes de agregar al carrito.",
@@ -96,15 +100,15 @@ export function AddToCartControl({
       id: productId,
       variant_id: selectedOption?.id, // Pass variant_id
       title,
-      price_cents: priceCents,
-      size: selectedSize,
+      price_cents: selectedOption.priceCents ?? priceCents,
+      size: selectedOption.label,
       quantity: 1,
       maxAvailable: selectedOption?.available,
     });
 
     toast({
       title: "Agregado al carrito",
-      description: `${title} (${selectedSize}) se agregó correctamente.`,
+      description: `${title} (${selectedOption.label}) se agregó correctamente.`,
     });
     return true;
   };
@@ -127,8 +131,8 @@ export function AddToCartControl({
   return (
     <div className={cn("space-y-2", className)}>
       <Select
-        value={selectedSize}
-        onValueChange={setSelectedSize}
+        value={selectedVariantId}
+        onValueChange={setSelectedVariantId}
         disabled={!hasSizes}
       >
         <SelectTrigger className="rounded-xl">
@@ -140,12 +144,15 @@ export function AddToCartControl({
         </SelectTrigger>
         <SelectContent>
           {normalizedOptions.map((option) => (
-            <SelectItem key={option.label} value={option.label}>
-              {option.label} ({option.available} disp.)
+            <SelectItem key={option.id} value={String(option.id)}>
+              {option.label}{option.sku ? ` · ${option.sku}` : ''} ({option.available} disp.) · {new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format((option.priceCents ?? priceCents) / 100)}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+      {selectedOption && (
+        <p className="text-sm font-medium">Precio de esta variante: {new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format((selectedOption.priceCents ?? priceCents) / 100)}</p>
+      )}
       <p className="text-xs text-muted-foreground">{helperMessage}</p>
       <div className={buttonsContainerClassName}>
         <Button

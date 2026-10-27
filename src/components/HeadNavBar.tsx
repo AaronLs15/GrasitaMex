@@ -199,7 +199,7 @@ export default function HeadNavBar() {
                     <div className="pr-1 space-y-3 overflow-auto max-h-64">
                       {items.map((item) => (
                         <div
-                          key={`${item.id}-${item.size}`}
+                          key={`${item.id}-${item.variant_id ?? item.size}`}
                           className="p-3 space-y-1 border rounded-xl bg-muted/30"
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -223,7 +223,8 @@ export default function HeadNavBar() {
                                     updateQuantity(
                                       item.id,
                                       item.size,
-                                      item.quantity - 1
+                                      item.quantity - 1,
+                                      item.variant_id
                                     )
                                   }
                                   disabled={item.quantity <= 1}
@@ -238,7 +239,8 @@ export default function HeadNavBar() {
                                     updateQuantity(
                                       item.id,
                                       item.size,
-                                      item.quantity + 1
+                                      item.quantity + 1,
+                                      item.variant_id
                                     )
                                   }
                                   disabled={
@@ -263,7 +265,7 @@ export default function HeadNavBar() {
                               variant="ghost"
                               size="icon"
                               className="w-6 h-6 text-muted-foreground"
-                              onClick={() => removeItem(item.id, item.size)}
+                              onClick={() => removeItem(item.id, item.size, item.variant_id)}
                               aria-label={`Eliminar ${item.title}`}
                             >
                               <X />

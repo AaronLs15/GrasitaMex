@@ -28,8 +28,8 @@ type CartContextValue = {
   totalAmount: number;
   isHydrated: boolean;
   addItem: (item: AddItemPayload) => void;
-  removeItem: (productId: number, size: string) => void;
-  updateQuantity: (productId: number, size: string, quantity: number) => void;
+  removeItem: (productId: number, size: string, variantId?: number) => void;
+  updateQuantity: (productId: number, size: string, quantity: number, variantId?: number) => void;
   clearCart: () => void;
 };
 
@@ -70,7 +70,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => {
       const quantity = payload.quantity ?? 1;
       const existingIndex = prev.findIndex(
-        (item) => item.id === payload.id && item.size === payload.size
+        (item) => item.id === payload.id && (
+          payload.variant_id ? item.variant_id === payload.variant_id : item.size === payload.size
+        )
       );
 
       if (existingIndex >= 0) {
@@ -85,6 +87,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         clone[existingIndex] = {
           ...existing,
+          title: payload.title,
+          price_cents: payload.price_cents,
           quantity: newQuantity,
           maxAvailable: max,
           variant_id: payload.variant_id ?? existing.variant_id, // Update variant_id if provided
@@ -109,21 +113,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const removeItem = useCallback((productId: number, size: string) => {
+  const removeItem = useCallback((productId: number, size: string, variantId?: number) => {
     setItems((prev) =>
-      prev.filter((item) => !(item.id === productId && item.size === size))
+      prev.filter((item) => !(item.id === productId && (variantId ? item.variant_id === variantId : item.size === size)))
     );
   }, []);
 
   const updateQuantity = useCallback(
-    (productId: number, size: string, quantity: number) => {
+    (productId: number, size: string, quantity: number, variantId?: number) => {
       if (quantity <= 0) {
-        removeItem(productId, size);
+        removeItem(productId, size, variantId);
         return;
       }
       setItems((prev) =>
         prev.map((item) =>
-          item.id === productId && item.size === size
+          item.id === productId && (variantId ? item.variant_id === variantId : item.size === size)
             ? { ...item, quantity }
             : item
         )

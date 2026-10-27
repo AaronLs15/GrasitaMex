@@ -28,7 +28,8 @@ import { Loader2 } from "lucide-react";
 type Product = {
   id: number;
   title: string;
-  price_cents: number;
+  price_cents: number | null;
+  pricing_mode: 'general' | 'variant';
   currency: string;
 };
 
@@ -38,6 +39,7 @@ type Variant = {
   sku: string | null;
   qty: number;
   active: boolean;
+  price_cents: number | null;
 };
 
 interface PosSaleDialogProps {
@@ -56,7 +58,7 @@ export default function PosSaleDialog({ product }: PosSaleDialogProps) {
 
   const [variantId, setVariantId] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
-  const [priceInput, setPriceInput] = useState(centsToInputValue(product.price_cents));
+  const [priceInput, setPriceInput] = useState(centsToInputValue(product.price_cents ?? 0));
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [note, setNote] = useState("");
@@ -76,7 +78,7 @@ export default function PosSaleDialog({ product }: PosSaleDialogProps) {
       const supa = supabaseBrowser();
       const { data, error } = await supa
         .from("product_variants")
-        .select("id, size_label, sku, qty, active")
+        .select("id, size_label, sku, qty, active, price_cents")
         .eq("product_id", product.id)
         .eq("active", true)
         .order("size_label", { ascending: true });
@@ -106,12 +108,20 @@ export default function PosSaleDialog({ product }: PosSaleDialogProps) {
 
   useEffect(() => {
     if (!open) return;
-    setPriceInput(centsToInputValue(product.price_cents));
+    setPriceInput(centsToInputValue(product.price_cents ?? 0));
     setQuantity(1);
     setCustomerName("");
     setCustomerEmail("");
     setNote("");
   }, [open, product.price_cents]);
+
+  useEffect(() => {
+    if (!selectedVariant) return;
+    const configuredPrice = product.pricing_mode === 'variant'
+      ? selectedVariant.price_cents
+      : product.price_cents;
+    setPriceInput(centsToInputValue(configuredPrice ?? 0));
+  }, [selectedVariant, product.pricing_mode, product.price_cents]);
 
   async function handleSubmit() {
     if (!variantId) {
@@ -213,7 +223,7 @@ export default function PosSaleDialog({ product }: PosSaleDialogProps) {
           <div className="rounded-lg border bg-muted/30 p-3 text-sm">
             <p className="font-medium">{product.title}</p>
             <p className="text-muted-foreground">
-              Precio lista: {product.currency} {centsToInputValue(product.price_cents)}
+              Precio configurado: {product.currency} {centsToInputValue(product.pricing_mode === 'variant' ? selectedVariant?.price_cents ?? 0 : product.price_cents ?? 0)}
             </p>
           </div>
 
@@ -232,7 +242,7 @@ export default function PosSaleDialog({ product }: PosSaleDialogProps) {
                 <SelectContent>
                   {variants.map((variant) => (
                     <SelectItem key={variant.id} value={String(variant.id)}>
-                      {variant.size_label} | Stock: {variant.qty}
+                      {variant.size_label} · {variant.sku} | Stock: {variant.qty}
                     </SelectItem>
                   ))}
                 </SelectContent>

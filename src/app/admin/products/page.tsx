@@ -119,7 +119,7 @@ export default async function ProductsPage({
 
   let productsQuery = supa
     .from('products')
-    .select('id,title,slug,price_cents,initialprice_cents,currency,published,brand,model_name,condition,description,created_at')
+    .select('id,title,slug,price_cents,initialprice_cents,currency,pricing_mode,published,brand,model_name,condition,description,created_at,product_variants(price_cents,initial_price_cents,active)')
 
   if (searchTerm) {
     const pattern = `%${searchTerm}%`
@@ -150,6 +150,28 @@ export default async function ProductsPage({
   const pageWindow = getPageWindow(currentPage, totalPages)
   const showingFrom = totalItems === 0 ? 0 : from + 1
   const showingTo = totalItems === 0 ? 0 : Math.min(to + 1, totalItems)
+
+  const getPricing = (product: any) => {
+    const activeVariants = (product.product_variants ?? []).filter((variant: any) => variant.active)
+    const prices = activeVariants
+      .map((variant: any) => product.pricing_mode === 'variant' ? variant.price_cents : product.price_cents)
+      .filter((price: number | null): price is number => price !== null && Number.isFinite(price))
+    const profits = activeVariants
+      .map((variant: any) => {
+        const price = product.pricing_mode === 'variant' ? variant.price_cents : product.price_cents
+        return Number.isFinite(price) ? price - variant.initial_price_cents : null
+      })
+      .filter((profit: number | null): profit is number => profit !== null)
+    return {
+      minPrice: prices.length ? Math.min(...prices) : product.price_cents,
+      maxPrice: prices.length ? Math.max(...prices) : product.price_cents,
+      minProfit: profits.length ? Math.min(...profits) : null,
+      maxProfit: profits.length ? Math.max(...profits) : null,
+      minCost: activeVariants.length ? Math.min(...activeVariants.map((v: any) => v.initial_price_cents)) : product.initialprice_cents,
+      maxCost: activeVariants.length ? Math.max(...activeVariants.map((v: any) => v.initial_price_cents)) : product.initialprice_cents,
+    }
+  }
+  const money = (currency: string, cents: number) => `${currency} ${(cents / 100).toFixed(2)}`
 
   return (
     <div className="p-4 space-y-4 sm:p-6">
@@ -222,7 +244,7 @@ export default async function ProductsPage({
             </thead>
             <tbody>
               {(products ?? []).map((product) => {
-                const earnings = (product.price_cents || 0) - (product.initialprice_cents || 0)
+                const pricing = getPricing(product)
                 return (
                   <tr key={product.id} className="transition-colors border-t hover:bg-muted/30">
                     <td className="p-3">
@@ -235,13 +257,13 @@ export default async function ProductsPage({
                     </td>
                     <td className="p-3">{product.condition}</td>
                     <td className="p-3 whitespace-nowrap">
-                      {product.currency} ${(product.price_cents / 100).toFixed(2)}
+                      {pricing.minPrice === null ? 'Sin precio' : <>{product.pricing_mode === 'variant' ? 'Desde ' : 'General '}{money(product.currency, pricing.minPrice)}</>}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      {product.currency} ${((product.initialprice_cents || 0) / 100).toFixed(2)}
+                      {pricing.minCost === pricing.maxCost ? money(product.currency, pricing.minCost) : `${money(product.currency, pricing.minCost)} – ${money(product.currency, pricing.maxCost)}`}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      {product.currency} ${(earnings / 100).toFixed(2)}
+                      {pricing.minProfit === null ? '—' : pricing.minProfit === pricing.maxProfit ? money(product.currency, pricing.minProfit) : `${money(product.currency, pricing.minProfit)} – ${money(product.currency, pricing.maxProfit)}`}
                     </td>
                     <td className="p-3">{product.published ? 'Si' : 'No'}</td>
                     <td className="p-3">
@@ -265,7 +287,9 @@ export default async function ProductsPage({
 
       {/* Vista de cards para móvil y tablet */}
       <div className="space-y-3 lg:hidden">
-        {(products ?? []).map((product) => (
+        {(products ?? []).map((product) => {
+          const pricing = getPricing(product)
+          return (
           <Card key={product.id} className="p-4">
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -301,16 +325,16 @@ export default async function ProductsPage({
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Precio:</span>
-                  <p className="text-lg font-medium">{product.currency} ${(product.price_cents / 100).toFixed(2)}</p>
+                  <p className="text-lg font-medium">{pricing.minPrice === null ? 'Sin precio' : <>{product.pricing_mode === 'variant' ? 'Desde ' : 'General '}{money(product.currency, pricing.minPrice)}</>}</p>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Costo:</span>
-                  <p className="font-medium">{product.currency} ${((product.initialprice_cents || 0) / 100).toFixed(2)}</p>
+                  <p className="font-medium">{pricing.minCost === pricing.maxCost ? money(product.currency, pricing.minCost) : `${money(product.currency, pricing.minCost)} – ${money(product.currency, pricing.maxCost)}`}</p>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Ganancia:</span>
                   <p className="font-medium">
-                    {product.currency} ${(((product.price_cents || 0) - (product.initialprice_cents || 0)) / 100).toFixed(2)}
+                    {pricing.minProfit === null ? '—' : pricing.minProfit === pricing.maxProfit ? money(product.currency, pricing.minProfit) : `${money(product.currency, pricing.minProfit)} – ${money(product.currency, pricing.maxProfit)}`}
                   </p>
                 </div>
               </div>
@@ -320,7 +344,8 @@ export default async function ProductsPage({
               </div>
             </div>
           </Card>
-        ))}
+          )
+        })}
 
         {(!products || products.length === 0) && (
           <Card className="p-8">
