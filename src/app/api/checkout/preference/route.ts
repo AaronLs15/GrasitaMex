@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { getSupabasePublicKey } from '@/lib/supabase/public-key';
 import {
   preferenceClient,
   centsToPesos,
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
 
       const supabaseAuth = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        getSupabasePublicKey(),
         {
           cookies: {
             get(name: string) {

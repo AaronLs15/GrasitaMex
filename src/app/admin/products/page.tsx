@@ -263,7 +263,7 @@ export default async function ProductsPage({
                       {pricing.minCost === pricing.maxCost ? money(product.currency, pricing.minCost) : `${money(product.currency, pricing.minCost)} – ${money(product.currency, pricing.maxCost)}`}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      {pricing.minProfit === null ? '—' : pricing.minProfit === pricing.maxProfit ? money(product.currency, pricing.minProfit) : `${money(product.currency, pricing.minProfit)} – ${money(product.currency, pricing.maxProfit)}`}
+                      {pricing.minProfit === null || pricing.maxProfit === null ? '—' : pricing.minProfit === pricing.maxProfit ? money(product.currency, pricing.minProfit) : `${money(product.currency, pricing.minProfit)} – ${money(product.currency, pricing.maxProfit)}`}
                     </td>
                     <td className="p-3">{product.published ? 'Si' : 'No'}</td>
                     <td className="p-3">
@@ -334,7 +334,7 @@ export default async function ProductsPage({
                 <div>
                   <span className="text-xs text-muted-foreground">Ganancia:</span>
                   <p className="font-medium">
-                    {pricing.minProfit === null ? '—' : pricing.minProfit === pricing.maxProfit ? money(product.currency, pricing.minProfit) : `${money(product.currency, pricing.minProfit)} – ${money(product.currency, pricing.maxProfit)}`}
+                    {pricing.minProfit === null || pricing.maxProfit === null ? '—' : pricing.minProfit === pricing.maxProfit ? money(product.currency, pricing.minProfit) : `${money(product.currency, pricing.minProfit)} – ${money(product.currency, pricing.maxProfit)}`}
                   </p>
                 </div>
               </div>

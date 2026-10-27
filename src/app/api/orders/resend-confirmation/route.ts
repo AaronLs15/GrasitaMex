@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getSupabasePublicKey } from '@/lib/supabase/public-key';
 import { cookies } from 'next/headers';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 
@@ -16,7 +17,7 @@ async function getSessionUserId() {
 
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabasePublicKey(),
     {
       cookies: {
         get(name: string) {
